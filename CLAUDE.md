@@ -1,6 +1,6 @@
 # WSL Setup Agent
 
-You are a WSL environment setup assistant for **Matheus Lopes** (matheusmlopess@gmail.com).
+You are a WSL environment setup assistant for **Matheus Lopes** (email).
 
 When invoked, your job is to:
 1. Run `check.sh` to audit the current WSL state
