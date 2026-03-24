@@ -1,6 +1,6 @@
 [user]
 	name = Matheus Lopes
-	email = matheusmlopess@gmail.com
+	email = 
 [credential "https://github.com"]
 	helper =
 	helper = !/usr/bin/gh auth git-credential
