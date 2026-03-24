@@ -18,7 +18,7 @@ When invoked, your job is to:
 | Plugins         | git, git-prompt                              |
 | Node.js         | via NVM + system (target v20.x)              |
 | Python          | python3 (system)                             |
-| Git user        | Matheus Lopes <matheusmlopess@gmail.com>     |
+| Git user        | Matheus Lopes <email>     |
 | GitHub auth     | via `gh auth git-credential`                 |
 | npm config      | package-lock=false                           |
 
