@@ -159,6 +159,11 @@ else
   fi
 fi
 
+# ── 9. Initialise sync timestamp ─────────────────────────────────────────────
+step "Initialising sync timestamp"
+run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync\""
+info ".last_sync created — first auto-sync will run in 15 days"
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo "========================================"
