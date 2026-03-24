@@ -115,3 +115,23 @@ source $ZSH/oh-my-zsh.sh
  #git
 plugins=(git git-prompt)
 export PATH="$HOME/.local/bin:$PATH"
+
+# Auto-sync WSL setup if 15+ days have passed since last sync
+_wsl_sync_check() {
+  local sync_script="$HOME/repo/wsl_setup/sync.sh"
+  local log_file="$HOME/repo/wsl_setup/sync.log"
+  local stamp_file="$HOME/repo/wsl_setup/.last_sync"
+  local interval=$((15 * 86400)) # 15 days in seconds
+
+  [[ ! -f "$sync_script" ]] && return
+
+  local now=$(date +%s)
+  local last=0
+  [[ -f "$stamp_file" ]] && last=$(cat "$stamp_file")
+
+  if (( now - last >= interval )); then
+    echo "[wsl-sync] 15 days since last sync — running now..."
+    bash "$sync_script" >> "$log_file" 2>&1 && echo "$now" > "$stamp_file" && echo "[wsl-sync] Done."
+  fi
+}
+_wsl_sync_check

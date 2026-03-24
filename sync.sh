@@ -125,6 +125,8 @@ if ! $DRY_RUN; then
     info "Nothing to commit — repo is up to date"
     log "Sync complete — no changes"
   fi
+  # Update timestamp so .zshrc startup check knows when we last ran
+  date +%s > "$SCRIPT_DIR/.last_sync"
 else
   echo "  [dry-run] would commit and push if changes detected"
 fi
