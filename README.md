@@ -52,6 +52,31 @@ bash setup.sh           # normal run
 bash setup.sh --dry-run # preview what would happen, no changes made
 ```
 
+### `sync.sh` — Snapshot and push changes
+
+Copies current dotfiles and a snapshot of installed packages into the repo, commits, and pushes. Run manually or let the cron job handle it.
+
+```bash
+bash sync.sh           # sync and push
+bash sync.sh --dry-run # preview changes, no commits made
+```
+
+A cron job runs this automatically every 15 days:
+
+```
+0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
+```
+
+To install the cron job on a new machine after cloning:
+
+```bash
+(crontab -l 2>/dev/null; echo "0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1") | crontab -
+```
+
+Sync history is logged to `sync.log`.
+
+---
+
 ### `check.sh` — Audit current state
 
 Run this anytime to see what's installed, missing, or misconfigured. Useful to verify after setup or to quickly check a machine you haven't touched in a while.
