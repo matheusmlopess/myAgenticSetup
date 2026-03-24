@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# setup.sh — Bootstraps a fresh WSL Ubuntu install to match Matheus's setup.
+# Usage: bash setup.sh [--dry-run]
+#
+# What it does:
+#   1. Installs APT packages (git, zsh, curl, gh, node, python3, etc.)
+#   2. Installs NVM
+#   3. Installs Oh My Zsh
+#   4. Copies dotfiles (.zshrc, .bashrc, .gitconfig, .npmrc)
+#   5. Sets zsh as the default shell
+#   6. Prompts to authenticate GitHub CLI
+
+set -euo pipefail
+
+DRY_RUN=false
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$SCRIPT_DIR/dotfiles"
+
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+step()  { echo -e "\n${BLUE}==>${NC} $1"; }
+info()  { echo -e "  ${GREEN}✓${NC} $1"; }
+note()  { echo -e "  ${YELLOW}!${NC} $1"; }
+
+run() {
+  if $DRY_RUN; then
+    echo "  [dry-run] $*"
+  else
+    "$@"
+  fi
+}
+
+echo ""
+echo "========================================"
+echo "  WSL Setup — $(date '+%Y-%m-%d %H:%M')"
+$DRY_RUN && echo "  MODE: DRY RUN (no changes will be made)"
+echo "========================================"
+
+# ── 1. APT packages ───────────────────────────────────────────────────────────
+step "Installing APT packages"
+
+APT_PACKAGES=(
+  git curl wget zsh build-essential make
+  unzip jq htop python3 python3-pip python3-venv
+)
+
+run sudo apt-get update -qq
+for pkg in "${APT_PACKAGES[@]}"; do
+  if dpkg -s "$pkg" &>/dev/null; then
+    info "$pkg already installed"
+  else
+    note "Installing $pkg..."
+    run sudo apt-get install -y -qq "$pkg"
+    info "$pkg installed"
+  fi
+done
+
+# ── 2. GitHub CLI ─────────────────────────────────────────────────────────────
+step "Installing GitHub CLI (gh)"
+if command -v gh &>/dev/null; then
+  info "gh already installed ($(gh --version | head -1))"
+else
+  note "Adding GitHub CLI apt repo..."
+  run bash -c '
+    type -p curl >/dev/null || sudo apt install curl -y
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+    sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update -qq
+    sudo apt install gh -y
+  '
+  info "gh installed"
+fi
+
+# ── 3. Node.js via NodeSource ─────────────────────────────────────────────────
+step "Installing Node.js"
+if command -v node &>/dev/null; then
+  info "node already installed ($(node --version))"
+else
+  note "Installing Node.js 20.x via NodeSource..."
+  run bash -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -'
+  run sudo apt-get install -y nodejs
+  info "node installed"
+fi
+
+# ── 4. NVM ────────────────────────────────────────────────────────────────────
+step "Installing NVM"
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  info "NVM already installed"
+else
+  note "Installing NVM..."
+  run bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
+  info "NVM installed"
+fi
+
+# ── 5. Oh My Zsh ─────────────────────────────────────────────────────────────
+step "Installing Oh My Zsh"
+if [ -d "$HOME/.oh-my-zsh" ]; then
+  info "Oh My Zsh already installed"
+else
+  note "Installing Oh My Zsh..."
+  run bash -c 'RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+  info "Oh My Zsh installed"
+fi
+
+# ── 6. Dotfiles ───────────────────────────────────────────────────────────────
+step "Copying dotfiles"
+
+copy_dotfile() {
+  local src="$DOTFILES_DIR/$1"
+  local dst="$HOME/$1"
+  if [ ! -f "$src" ]; then
+    note "Source $src not found — skipping"
+    return
+  fi
+  if [ -f "$dst" ]; then
+    run cp "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
+    note "Backed up existing $1 → ${1}.bak.*"
+  fi
+  run cp "$src" "$dst"
+  info "Copied $1 → ~/"
+}
+
+copy_dotfile ".zshrc"
+copy_dotfile ".bashrc"
+copy_dotfile ".gitconfig"
+copy_dotfile ".npmrc"
+
+# ── 7. Default shell ──────────────────────────────────────────────────────────
+step "Setting zsh as default shell"
+CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
+if [[ "$CURRENT_SHELL" == *"zsh"* ]]; then
+  info "zsh is already the default shell"
+else
+  run chsh -s "$(which zsh)"
+  info "Default shell set to zsh (restart terminal to apply)"
+fi
+
+# ── 8. GitHub CLI auth ────────────────────────────────────────────────────────
+step "GitHub CLI authentication"
+if gh auth status &>/dev/null 2>&1; then
+  info "gh is already authenticated"
+else
+  note "gh is not authenticated."
+  if ! $DRY_RUN; then
+    read -rp "  Authenticate with GitHub now? [y/N] " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+      gh auth login
+    else
+      note "Skipped. Run 'gh auth login' later."
+    fi
+  fi
+fi
+
+# ── Done ──────────────────────────────────────────────────────────────────────
+echo ""
+echo "========================================"
+echo -e "  ${GREEN}Setup complete!${NC}"
+echo ""
+echo "  Next steps:"
+echo "   • Restart your terminal (or run: exec zsh)"
+echo "   • Run check.sh to verify everything"
+echo "   • If gh isn't authed yet: gh auth login"
+echo "========================================"
+echo ""

@@ -1,0 +1,27 @@
+# APT packages to install on fresh WSL
+# Format: package_name  # comment
+
+# Core tools
+git
+curl
+wget
+zsh
+build-essential
+make
+
+# GitHub CLI
+gh
+
+# Node.js ecosystem (via NodeSource or system)
+nodejs
+npm
+
+# Python
+python3
+python3-pip
+python3-venv
+
+# Utilities
+unzip
+jq
+htop
