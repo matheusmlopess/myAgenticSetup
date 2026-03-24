@@ -9,7 +9,7 @@ Also includes a **Claude Code agent** (`CLAUDE.md`) that guides the setup intera
 ## Quick Start
 
 ```bash
-git clone https://github.com/matheusmlopess/wsl_setup ~/repo/wsl_setup
+git clone https://github.com/matheusmlopess/myAgenticSetup ~/repo/wsl_setup
 cd ~/repo/wsl_setup
 bash setup.sh
 ```
