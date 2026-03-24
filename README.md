@@ -61,11 +61,16 @@ bash sync.sh           # sync and push
 bash sync.sh --dry-run # preview changes, no commits made
 ```
 
-A cron job runs this automatically every 15 days:
+Two mechanisms ensure sync always runs even if WSL was off on the scheduled day:
 
-```
-0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
-```
+1. **Cron job** — fires every 15 days at 9am if WSL is on:
+   ```
+   0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
+   ```
+
+2. **Terminal startup check** — every time you open a terminal, `.zshrc` reads `.last_sync` and runs sync automatically if 15+ days have passed. This catches the case where WSL was off when cron was supposed to fire.
+
+`.last_sync` is a Unix timestamp file committed to the repo. On a fresh clone it already holds the date of the last sync, so the 15-day window starts correctly without triggering an immediate sync on first boot.
 
 To install the cron job on a new machine after cloning:
 
@@ -125,6 +130,8 @@ Stored in `dotfiles/` and deployed to `~/` by `setup.sh`. Any existing file is b
 | `.bashrc`    | NVM init, PATH, auto-launches zsh on login       |
 | `.gitconfig` | Git identity + GitHub CLI credential helper      |
 | `.npmrc`     | `package-lock=false`                             |
+
+`.last_sync` is a Unix timestamp file at the repo root. It is committed to the repo by `sync.sh` after every successful push, so a fresh clone always knows when the last sync occurred and won't trigger an immediate sync on first boot.
 
 ---
 

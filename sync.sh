@@ -113,7 +113,9 @@ step "Pushing to GitHub"
 cd "$SCRIPT_DIR"
 
 if ! $DRY_RUN; then
-  git add dotfiles/ packages.txt 2>/dev/null || true
+  # Update timestamp before committing so it's included in the push
+  date +%s > "$SCRIPT_DIR/.last_sync"
+  git add dotfiles/ packages.txt .last_sync 2>/dev/null || true
 
   if ! git diff --cached --quiet; then
     COMMIT_MSG="chore: sync dotfiles and packages — $(date '+%Y-%m-%d')"
@@ -125,8 +127,6 @@ if ! $DRY_RUN; then
     info "Nothing to commit — repo is up to date"
     log "Sync complete — no changes"
   fi
-  # Update timestamp so .zshrc startup check knows when we last ran
-  date +%s > "$SCRIPT_DIR/.last_sync"
 else
   echo "  [dry-run] would commit and push if changes detected"
 fi
