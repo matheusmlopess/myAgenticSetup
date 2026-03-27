@@ -61,4 +61,19 @@ When the user opens Claude in this directory (e.g., on a fresh WSL install), you
 4. **Walk through interactive steps** — GitHub CLI auth requires `gh auth login` interactively
 5. **Verify after** — re-run `check.sh` to confirm everything passed
 
+6. **Check repo sync status** — run:
+   ```bash
+   git fetch origin 2>/dev/null
+   git status -sb
+   ```
+   Compare local branch against `origin/master`. If the local repo is **behind** the remote:
+   - Report how many commits are behind
+   - Present the following options to the user:
+     - **[1] Pull updates** — run `git pull origin master` to sync
+     - **[2] View changes** — run `git log HEAD..origin/master --oneline` to preview what's new
+     - **[3] Skip** — continue without updating
+   - Wait for the user to choose before proceeding.
+   - If the user picks **[1]**, pull and confirm success, then re-run `check.sh` to apply any new setup steps.
+
 Do not make assumptions about what's installed — always run `check.sh` first.
+Do not pull or modify the repo without explicit user confirmation.

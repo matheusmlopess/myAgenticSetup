@@ -1,5 +1,5 @@
 # APT packages to install on fresh WSL
-# Format: package_name  # comment
+# One package per line. Lines starting with # are ignored.
 
 # Core tools
 git
@@ -25,3 +25,9 @@ python3-venv
 unzip
 jq
 htop
+tmux
+vim
+byobu
+rsync
+bc
+eslint

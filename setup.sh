@@ -42,23 +42,20 @@ $DRY_RUN && echo "  MODE: DRY RUN (no changes will be made)"
 echo "========================================"
 
 # ── 1. APT packages ───────────────────────────────────────────────────────────
-step "Installing APT packages"
-
-APT_PACKAGES=(
-  git curl wget zsh build-essential make
-  unzip jq htop python3 python3-pip python3-venv
-)
+step "Installing APT packages (from packages.txt)"
 
 run sudo apt-get update -qq
-for pkg in "${APT_PACKAGES[@]}"; do
-  if dpkg -s "$pkg" &>/dev/null; then
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+  pkg="${line%% *}"
+  if dpkg -s "$pkg" &>/dev/null 2>&1; then
     info "$pkg already installed"
   else
     note "Installing $pkg..."
     run sudo apt-get install -y -qq "$pkg"
     info "$pkg installed"
   fi
-done
+done < "$SCRIPT_DIR/packages.txt"
 
 # ── 2. GitHub CLI ─────────────────────────────────────────────────────────────
 step "Installing GitHub CLI (gh)"
@@ -110,7 +107,28 @@ else
   info "Oh My Zsh installed"
 fi
 
-# ── 6. Dotfiles ───────────────────────────────────────────────────────────────
+# ── 6. Global npm packages ────────────────────────────────────────────────────
+step "Installing global npm packages (from npm-globals.txt)"
+
+if [ -f "$SCRIPT_DIR/npm-globals.txt" ]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+    pkg="${line%%:*}"
+    cmd="${line##*:}"
+    [[ "$cmd" == "$pkg" ]] && cmd="$pkg"
+    if command -v "$cmd" &>/dev/null; then
+      info "$pkg already installed"
+    else
+      note "Installing $pkg..."
+      run npm install -g "$pkg"
+      info "$pkg installed"
+    fi
+  done < "$SCRIPT_DIR/npm-globals.txt"
+else
+  note "npm-globals.txt not found — skipping"
+fi
+
+# ── 7. Dotfiles ───────────────────────────────────────────────────────────────
 step "Copying dotfiles"
 
 copy_dotfile() {
@@ -133,7 +151,7 @@ copy_dotfile ".bashrc"
 copy_dotfile ".gitconfig"
 copy_dotfile ".npmrc"
 
-# ── 7. Default shell ──────────────────────────────────────────────────────────
+# ── 8. Default shell ──────────────────────────────────────────────────────────
 step "Setting zsh as default shell"
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
 if [[ "$CURRENT_SHELL" == *"zsh"* ]]; then
@@ -143,7 +161,7 @@ else
   info "Default shell set to zsh (restart terminal to apply)"
 fi
 
-# ── 8. GitHub CLI auth ────────────────────────────────────────────────────────
+# ── 9. GitHub CLI auth ────────────────────────────────────────────────────────
 step "GitHub CLI authentication"
 if gh auth status &>/dev/null 2>&1; then
   info "gh is already authenticated"
@@ -159,7 +177,7 @@ else
   fi
 fi
 
-# ── 9. Initialise sync timestamp ─────────────────────────────────────────────
+# ── 10. Initialise sync timestamp ────────────────────────────────────────────
 step "Initialising sync timestamp"
 run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync\""
 info ".last_sync created — first auto-sync will run in 15 days"

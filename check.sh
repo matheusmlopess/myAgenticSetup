@@ -22,33 +22,21 @@ echo "========================================"
 echo "  WSL Setup Check — $(date '+%Y-%m-%d %H:%M')"
 echo "========================================"
 
-# ── 1. CLI Tools ─────────────────────────────────────────────────────────────
+# ── 1. APT Packages ──────────────────────────────────────────────────────────
 echo ""
-echo "── CLI Tools ───────────────────────────"
+echo "── APT Packages ────────────────────────"
 
-check_cmd() {
-  local cmd="$1"
-  local label="${2:-$1}"
-  if command -v "$cmd" &>/dev/null; then
-    ok "$label ($(command -v "$cmd"))"
+while IFS= read -r line || [[ -n "$line" ]]; do
+  # skip comments and blank lines
+  [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+  pkg="${line%% *}"  # strip inline comments
+  if dpkg -s "$pkg" &>/dev/null 2>&1; then
+    ok "$pkg"
   else
-    miss "$label — not found"
+    miss "$pkg — not installed (apt)"
     ISSUES=$((ISSUES+1))
   fi
-}
-
-check_cmd git     "git"
-check_cmd zsh     "zsh"
-check_cmd curl    "curl"
-check_cmd wget    "wget"
-check_cmd make    "make"
-check_cmd gcc     "gcc / build-essential"
-check_cmd gh      "GitHub CLI (gh)"
-check_cmd node    "Node.js"
-check_cmd npm     "npm"
-check_cmd python3 "python3"
-check_cmd jq      "jq"
-check_cmd unzip   "unzip"
+done < "$SCRIPT_DIR/packages.txt"
 
 # ── 2. NVM ───────────────────────────────────────────────────────────────────
 echo ""
@@ -131,6 +119,27 @@ else
   warn "Default shell is $CURRENT_SHELL (expected zsh)"
   warn "Run: chsh -s \$(which zsh)"
   ISSUES=$((ISSUES+1))
+fi
+
+# ── 8. Global npm packages ────────────────────────────────────────────────────
+echo ""
+echo "── Global npm packages ─────────────────"
+
+if [ -f "$SCRIPT_DIR/npm-globals.txt" ]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+    pkg="${line%%:*}"
+    cmd="${line##*:}"
+    [[ "$cmd" == "$pkg" ]] && cmd="$pkg"  # no colon = use pkg name as cmd
+    if command -v "$cmd" &>/dev/null; then
+      ok "$pkg ($cmd)"
+    else
+      miss "$pkg — not installed globally"
+      ISSUES=$((ISSUES+1))
+    fi
+  done < "$SCRIPT_DIR/npm-globals.txt"
+else
+  warn "npm-globals.txt not found — skipping"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
