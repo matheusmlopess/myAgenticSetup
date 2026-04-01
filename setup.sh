@@ -17,6 +17,8 @@ DRY_RUN=false
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$SCRIPT_DIR/dotfiles"
+EXISTING_GIT_USER="$(git config --global user.name 2>/dev/null || true)"
+EXISTING_GIT_EMAIL="$(git config --global user.email 2>/dev/null || true)"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -45,8 +47,18 @@ echo "========================================"
 step "Installing APT packages (from packages.txt)"
 
 run sudo apt-get update -qq
+IN_APT_SECTION=false
 while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" == "## APT (manually installed)" ]]; then
+    IN_APT_SECTION=true
+    continue
+  fi
+  if [[ "$line" == "## "* ]]; then
+    IN_APT_SECTION=false
+    continue
+  fi
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+  [[ "$IN_APT_SECTION" != true ]] && continue
   pkg="${line%% *}"
   if dpkg -s "$pkg" &>/dev/null 2>&1; then
     info "$pkg already installed"
@@ -132,24 +144,53 @@ fi
 step "Copying dotfiles"
 
 copy_dotfile() {
-  local src="$DOTFILES_DIR/$1"
-  local dst="$HOME/$1"
+  local src_name="$1"
+  local dst_name="${2:-$1}"
+  local src="$DOTFILES_DIR/$src_name"
+  local dst="$HOME/$dst_name"
   if [ ! -f "$src" ]; then
     note "Source $src not found — skipping"
     return
   fi
   if [ -f "$dst" ]; then
     run cp "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
-    note "Backed up existing $1 → ${1}.bak.*"
+    note "Backed up existing $dst_name → ${dst_name}.bak.*"
   fi
   run cp "$src" "$dst"
-  info "Copied $1 → ~/"
+  info "Copied $src_name → ~/$dst_name"
 }
 
 copy_dotfile ".zshrc"
 copy_dotfile ".bashrc"
-copy_dotfile ".gitconfig"
-copy_dotfile ".npmrc"
+copy_dotfile ".gitconfig.template" ".gitconfig"
+copy_dotfile ".npmrc.template" ".npmrc"
+
+step "Configuring Git identity"
+TARGET_GIT_USER="$EXISTING_GIT_USER"
+TARGET_GIT_EMAIL="$EXISTING_GIT_EMAIL"
+
+if ! $DRY_RUN; then
+  if [ -z "$TARGET_GIT_USER" ]; then
+    read -rp "  Git user.name: " TARGET_GIT_USER
+  fi
+  if [ -z "$TARGET_GIT_EMAIL" ]; then
+    read -rp "  Git user.email: " TARGET_GIT_EMAIL
+  fi
+fi
+
+if [ -n "$TARGET_GIT_USER" ]; then
+  run git config --global user.name "$TARGET_GIT_USER"
+  info "Configured git user.name"
+else
+  note "git user.name left unset"
+fi
+
+if [ -n "$TARGET_GIT_EMAIL" ]; then
+  run git config --global user.email "$TARGET_GIT_EMAIL"
+  info "Configured git user.email"
+else
+  note "git user.email left unset"
+fi
 
 # ── 8. Default shell ──────────────────────────────────────────────────────────
 step "Setting zsh as default shell"

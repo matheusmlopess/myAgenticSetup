@@ -35,7 +35,7 @@ exec zsh
 ## What Gets Configured
 
 - **Dotfiles** — `.zshrc`, `.bashrc`, `.gitconfig`, `.npmrc` copied to `~/`
-- **Git identity** — name and email pre-configured
+- **Git identity** — restored from existing global config or prompted during setup
 - **GitHub CLI** — credential helper wired up (prompts for `gh auth login`)
 - **Default shell** — set to zsh via `chsh`
 
@@ -54,21 +54,21 @@ bash setup.sh --dry-run # preview what would happen, no changes made
 
 ### `sync.sh` — Snapshot and push changes
 
-Validates the repo against `origin/master`, then copies current dotfiles and a snapshot of installed packages into the repo, commits, and pushes. If the local branch is behind or diverged, or if tracked snapshot files already have local edits, sync stops instead of overwriting managed files.
+Validates the repo against `origin/master`, then copies current non-sensitive dotfiles and a snapshot of installed packages into the repo, commits, and pushes. If the local branch is behind or diverged, if tracked snapshot files already have local edits, or if a secret-like value is detected in the managed files, sync stops instead of publishing.
 
 ```bash
 bash sync.sh           # sync and push
 bash sync.sh --dry-run # preview changes, no commits made
 ```
 
-Two mechanisms ensure sync always runs even if WSL was off on the scheduled day:
+Two mechanisms keep sync visible even if WSL was off on the scheduled day:
 
 1. **Cron job** — fires every 15 days at 9am if WSL is on:
    ```
    0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
    ```
 
-2. **Terminal startup check** — every time you open a terminal, `.zshrc` reads `.last_sync` and runs sync automatically if 15+ days have passed. This catches the case where WSL was off when cron was supposed to fire.
+2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` reads `.last_sync` and reminds you to run sync manually if 15+ days have passed. This catches the case where WSL was off when cron was supposed to fire without causing an unattended push.
 
 `.last_sync` is a Unix timestamp file. `sync.sh` refreshes it locally after successful no-op runs, and includes it in the commit when dotfiles or package snapshots actually change. On a fresh clone, the committed value still gives a reasonable starting point for the 15-day window.
 
@@ -138,7 +138,7 @@ Example output:
                   |                          |
                   v                          v
         +-------------------+      +-------------------+
-        | auto sync in      |      | manual sync via   |
+        | sync reminder in  |      | manual sync via   |
         | dotfiles/.zshrc   |      | sync.sh           |
         +---------+---------+      +---------+---------+
                   |                          |
@@ -179,10 +179,13 @@ install Oh My Zsh if missing
 install global npm packages from npm-globals.txt
   |
   v
-copy tracked dotfiles/ -> ~/
+copy tracked dotfiles/templates -> ~/
   |
   v
 backup existing home dotfiles before overwrite
+  |
+  v
+restore or prompt for git identity
   |
   v
 set default shell to zsh
@@ -235,8 +238,6 @@ check snapshot drift
   |
   +--> compare ~/.zshrc vs dotfiles/.zshrc
   +--> compare ~/.bashrc vs dotfiles/.bashrc
-  +--> compare ~/.gitconfig vs dotfiles/.gitconfig
-  +--> compare ~/.npmrc vs dotfiles/.npmrc
   +--> compare generated package snapshot vs packages.txt
   |
   v
@@ -278,7 +279,7 @@ validate repo state
   v
 sync dotfiles
   |
-  +--> for each managed dotfile:
+  +--> for each managed non-sensitive dotfile:
   |      compare ~/file vs repo dotfiles/file
   |      if different -> copy home file into repo snapshot
   |
@@ -292,9 +293,11 @@ snapshot packages
   v
 commit/push phase
   |
+  +--> run secret scan gate
+  |
   +--> if dotfiles/packages changed:
   |      update .last_sync
-  |      git add dotfiles/ packages.txt .last_sync
+  |      git add managed snapshots + templates + .last_sync
   |      git commit
   |      git push origin master
   |
@@ -307,7 +310,7 @@ commit/push phase
 done
 ```
 
-### Auto-sync in `.zshrc`
+### Sync reminder in `.zshrc`
 
 ```text
 new shell starts
@@ -319,9 +322,7 @@ run _wsl_sync_check()
   +--> compute now - last_sync
   +--> if < 15 days: do nothing
   +--> if >= 15 days:
-          run sync.sh
-          append output to sync.log
-          if sync succeeds: print "Done."
+          print reminder to run sync.sh manually
   |
   v
 continue normal shell startup
@@ -344,14 +345,14 @@ Claude will read `CLAUDE.md`, run `check.sh` automatically, explain what's missi
 
 ## Dotfiles
 
-Stored in `dotfiles/` and deployed to `~/` by `setup.sh`. Any existing file is backed up to `~/.<file>.bak.<timestamp>` before being overwritten.
+Stored in `dotfiles/` and deployed to `~/` by `setup.sh`. Any existing file is backed up to `~/.<file>.bak.<timestamp>` before being overwritten. Sensitive user-specific values are no longer tracked directly; setup uses templates for those files and configures Git identity separately.
 
 | File         | Purpose                                          |
 |--------------|--------------------------------------------------|
 | `.zshrc`     | Oh My Zsh config, theme, plugins, aliases        |
 | `.bashrc`    | NVM init, PATH, auto-launches zsh on login       |
-| `.gitconfig` | Git identity + GitHub CLI credential helper      |
-| `.npmrc`     | `package-lock=false`                             |
+| `.gitconfig.template` | GitHub CLI credential helper + placeholders |
+| `.npmrc.template`     | baseline npm config                          |
 
 `.last_sync` is a Unix timestamp file at the repo root. `sync.sh` refreshes it on successful runs to throttle auto-sync checks, but only commits it when there is a real snapshot change to publish. That avoids timestamp-only commits while still giving fresh clones a usable baseline.
 

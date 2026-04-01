@@ -50,6 +50,26 @@ abort_sync() {
   exit 1
 }
 
+scan_for_secrets() {
+  local pattern
+  pattern='(-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----|_authToken=|authToken=|password=|passwd=|ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{20,})'
+
+  if ! command -v rg &>/dev/null; then
+    note "ripgrep not installed — skipping secret scan gate"
+    return
+  fi
+
+  if rg -n -H -e "$pattern" dotfiles/.zshrc dotfiles/.bashrc dotfiles/.gitconfig.template dotfiles/.npmrc.template packages.txt >/tmp/wsl_setup_secret_scan.out 2>/dev/null; then
+    cat /tmp/wsl_setup_secret_scan.out | while IFS= read -r line; do
+      note "secret-like content detected: $line"
+    done
+    rm -f /tmp/wsl_setup_secret_scan.out
+    abort_sync "Secret scan failed. Remove sensitive values before syncing."
+  fi
+
+  rm -f /tmp/wsl_setup_secret_scan.out
+}
+
 print_managed_diff() {
   local range="$1"
   local diff_output
@@ -134,8 +154,6 @@ step "Syncing dotfiles"
 DOTFILES=(
   ".zshrc"
   ".bashrc"
-  ".gitconfig"
-  ".npmrc"
 )
 
 CHANGED=false
@@ -202,12 +220,14 @@ step "Pushing to GitHub"
 SYNC_TS=$(date +%s)
 
 if ! $DRY_RUN; then
+  scan_for_secrets
+
   if [ "$CHANGED" = true ]; then
     # Include the sync timestamp when there is a real snapshot update to publish.
     refresh_last_sync "$SYNC_TS"
-    git add dotfiles/ packages.txt .last_sync 2>/dev/null || true
+    git add dotfiles/.zshrc dotfiles/.bashrc dotfiles/.gitconfig.template dotfiles/.npmrc.template packages.txt .last_sync 2>/dev/null || true
   else
-    git add dotfiles/ packages.txt 2>/dev/null || true
+    git add dotfiles/.zshrc dotfiles/.bashrc dotfiles/.gitconfig.template dotfiles/.npmrc.template packages.txt 2>/dev/null || true
   fi
 
   if ! git diff --cached --quiet; then

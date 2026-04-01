@@ -109,9 +109,19 @@ check_repo_sync_status
 echo ""
 echo "── APT Packages ────────────────────────"
 
+IN_APT_SECTION=false
 while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" == "## APT (manually installed)" ]]; then
+    IN_APT_SECTION=true
+    continue
+  fi
+  if [[ "$line" == "## "* ]]; then
+    IN_APT_SECTION=false
+    continue
+  fi
   # skip comments and blank lines
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+  [[ "$IN_APT_SECTION" != true ]] && continue
   pkg="${line%% *}"  # strip inline comments
   if dpkg -s "$pkg" &>/dev/null 2>&1; then
     ok "$pkg"
@@ -181,8 +191,6 @@ check_snapshot_drift() {
 
 check_snapshot_drift ".zshrc"
 check_snapshot_drift ".bashrc"
-check_snapshot_drift ".gitconfig"
-check_snapshot_drift ".npmrc"
 
 CURRENT_PACKAGES=$(generate_packages)
 TRACKED_PACKAGES=$(cat "$SCRIPT_DIR/packages.txt" 2>/dev/null || echo "")
