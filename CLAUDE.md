@@ -18,6 +18,8 @@ When invoked, your job is to:
 | Plugins         | git, git-prompt                              |
 | Node.js         | via NVM + system (target v20.x)              |
 | Python          | python3 (system)                             |
+| Claude CLI      | installed via `curl -fsSL https://claude.ai/install.sh | bash` |
+| Codex CLI       | installed via `npm install -g @openai/codex` |
 | Git user        | Matheus Lopes <email>     |
 | GitHub auth     | via `gh auth git-credential`                 |
 | npm config      | package-lock=false                           |
@@ -31,7 +33,7 @@ When invoked, your job is to:
 
 ## Setup Scripts
 
-- `setup.sh` — Full bootstrap (apt packages, NVM, Oh My Zsh, dotfiles, chsh)
+- `setup.sh` — Full bootstrap (apt packages, NVM, Oh My Zsh, Claude CLI, Codex CLI, dotfiles, chsh)
 - `check.sh` — Audits current state, reports issues, and warns when the repo is behind/diverged from `origin/master`
 
 ## How to Bootstrap a Fresh WSL

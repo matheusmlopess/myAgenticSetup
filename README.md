@@ -29,6 +29,7 @@ exec zsh
 | Shell          | zsh, Oh My Zsh (random theme), git + git-prompt plugins |
 | Version mgmt   | NVM                                                |
 | Runtime        | Node.js 20.x, npm, python3, pip, venv             |
+| AI tools       | Claude CLI, Codex CLI                             |
 | Dev tools      | git, gh (GitHub CLI), make, gcc, build-essential, pipx |
 | Utilities      | curl, wget, jq, unzip, htop                       |
 
@@ -38,6 +39,7 @@ exec zsh
 - **Git identity** — restored from existing global config or prompted during setup
 - **GitHub CLI** — credential helper wired up (prompts for `gh auth login`)
 - **Default shell** — set to zsh via `chsh`
+- **Startup reminders** — zsh warns when sync is due or the repo is behind `origin/master`
 
 ---
 
@@ -50,6 +52,13 @@ Installs everything from scratch. Safe to re-run — skips anything already inst
 ```bash
 bash setup.sh           # normal run
 bash setup.sh --dry-run # preview what would happen, no changes made
+```
+
+CLI install commands used by setup:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+npm install -g @openai/codex
 ```
 
 ### `sync.sh` — Snapshot and push changes
@@ -68,7 +77,7 @@ Two mechanisms keep sync visible even if WSL was off on the scheduled day:
    0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
    ```
 
-2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` reads `.last_sync` and reminds you to run sync manually if 15+ days have passed. This catches the case where WSL was off when cron was supposed to fire without causing an unattended push.
+2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` reads `.last_sync`, reminds you to run sync manually if 15+ days have passed, and warns when the local repo is behind `origin/master`. This catches the case where WSL was off when cron was supposed to fire and also nudges you to update before syncing.
 
 `.last_sync` is a Unix timestamp file. `sync.sh` refreshes it locally after successful no-op runs, and includes it in the commit when dotfiles or package snapshots actually change. On a fresh clone, the committed value still gives a reasonable starting point for the 15-day window.
 
@@ -179,6 +188,15 @@ install Oh My Zsh if missing
 install global npm packages from npm-globals.txt
   |
   v
+install Claude CLI via curl
+  |
+  v
+install Codex CLI via npm
+  |
+  v
+install Python tools from python-globals.txt
+  |
+  v
 copy tracked dotfiles/templates -> ~/
   |
   v
@@ -251,6 +269,9 @@ check default shell
   |
   v
 check npm globals from npm-globals.txt
+  |
+  v
+check Claude CLI and Codex CLI
   |
   v
 check Python tools from python-globals.txt
@@ -336,6 +357,12 @@ run _wsl_sync_check()
   +--> if >= 15 days:
           print reminder to run sync.sh manually
   |
+  +--> fetch origin/master
+  +--> if local repo is behind:
+          print update suggestion
+  +--> if local repo diverged:
+          print review warning
+  |
   v
 continue normal shell startup
 ```
@@ -378,6 +405,10 @@ bash check.sh
 
 # Authenticate GitHub CLI (if not done during setup)
 gh auth login
+
+# Verify AI CLIs
+claude --version
+codex --version
 
 # Reload shell
 exec zsh

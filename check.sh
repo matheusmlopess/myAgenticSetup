@@ -266,7 +266,25 @@ else
   warn "npm-globals.txt not found — skipping"
 fi
 
-# ── 9. Global Python tools ────────────────────────────────────────────────────
+# ── 9. AI CLI tools ───────────────────────────────────────────────────────────
+echo ""
+echo "── AI CLI tools ────────────────────────"
+
+if command -v claude &>/dev/null; then
+  ok "claude"
+else
+  miss "claude — not installed"
+  ISSUES=$((ISSUES+1))
+fi
+
+if command -v codex &>/dev/null; then
+  ok "codex"
+else
+  miss "codex — not installed"
+  ISSUES=$((ISSUES+1))
+fi
+
+# ── 10. Global Python tools ───────────────────────────────────────────────────
 echo ""
 echo "── Global Python tools ─────────────────"
 

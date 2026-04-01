@@ -4,3 +4,4 @@
 # If no :<command> is given, the package name itself is used as the command.
 
 @mermaid-js/mermaid-cli:mmdc
+@openai/codex:codex

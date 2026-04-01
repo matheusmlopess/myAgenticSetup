@@ -7,9 +7,11 @@
 #   2. Installs NVM
 #   3. Installs Oh My Zsh
 #   4. Copies dotfiles (.zshrc, .bashrc, .gitconfig, .npmrc)
-#   5. Sets zsh as the default shell
-#   6. Prompts to authenticate GitHub CLI
-#   7. Installs Python security audit tools via pipx
+#   5. Installs Claude CLI
+#   6. Installs Codex CLI
+#   7. Sets zsh as the default shell
+#   8. Prompts to authenticate GitHub CLI
+#   9. Installs Python security audit tools via pipx
 
 set -euo pipefail
 
@@ -141,7 +143,17 @@ else
   note "npm-globals.txt not found — skipping"
 fi
 
-# ── 7. Global Python packages ─────────────────────────────────────────────────
+# ── 7. Claude CLI ──────────────────────────────────────────────────────────────
+step "Installing Claude CLI"
+if command -v claude &>/dev/null; then
+  info "claude already installed"
+else
+  note "Installing Claude CLI..."
+  run bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+  info "claude installed"
+fi
+
+# ── 8. Global Python packages ─────────────────────────────────────────────────
 step "Installing global Python tools (from python-globals.txt)"
 
 if [ -f "$SCRIPT_DIR/python-globals.txt" ]; then
@@ -166,7 +178,7 @@ else
   note "python-globals.txt not found — skipping"
 fi
 
-# ── 8. Dotfiles ───────────────────────────────────────────────────────────────
+# ── 9. Dotfiles ───────────────────────────────────────────────────────────────
 step "Copying dotfiles"
 
 copy_dotfile() {
@@ -218,7 +230,7 @@ else
   note "git user.email left unset"
 fi
 
-# ── 9. Default shell ──────────────────────────────────────────────────────────
+# ── 10. Default shell ─────────────────────────────────────────────────────────
 step "Setting zsh as default shell"
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
 if [[ "$CURRENT_SHELL" == *"zsh"* ]]; then
@@ -228,7 +240,7 @@ else
   info "Default shell set to zsh (restart terminal to apply)"
 fi
 
-# ── 10. GitHub CLI auth ───────────────────────────────────────────────────────
+# ── 11. GitHub CLI auth ───────────────────────────────────────────────────────
 step "GitHub CLI authentication"
 if gh auth status &>/dev/null 2>&1; then
   info "gh is already authenticated"
@@ -244,7 +256,7 @@ else
   fi
 fi
 
-# ── 11. Initialise sync timestamp ────────────────────────────────────────────
+# ── 12. Initialise sync timestamp ────────────────────────────────────────────
 step "Initialising sync timestamp"
 run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync\""
 info ".last_sync created — first auto-sync will run in 15 days"
@@ -258,5 +270,6 @@ echo "  Next steps:"
 echo "   • Restart your terminal (or run: exec zsh)"
 echo "   • Run check.sh to verify everything"
 echo "   • If gh isn't authed yet: gh auth login"
+echo "   • Run claude or codex to verify the AI CLIs respond"
 echo "========================================"
 echo ""

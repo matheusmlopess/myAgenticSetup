@@ -121,6 +121,8 @@ export PATH="$HOME/.local/bin:$PATH"
 _wsl_sync_check() {
   local sync_script="$HOME/repo/wsl_setup/sync.sh"
   local stamp_file="$HOME/repo/wsl_setup/.last_sync"
+  local repo_dir="$HOME/repo/wsl_setup"
+  local remote_ref="origin/master"
   local interval=$((15 * 86400)) # 15 days in seconds
 
   [[ ! -f "$sync_script" ]] && return
@@ -131,6 +133,23 @@ _wsl_sync_check() {
 
   if (( now - last >= interval )); then
     echo "[wsl-sync] 15 days since last sync — run: bash ~/repo/wsl_setup/sync.sh"
+  fi
+
+  if git -C "$repo_dir" rev-parse --is-inside-work-tree &>/dev/null; then
+    if git -C "$repo_dir" fetch --quiet origin master &>/dev/null; then
+      local local_head remote_head merge_base
+      local_head=$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || true)
+      remote_head=$(git -C "$repo_dir" rev-parse "$remote_ref" 2>/dev/null || true)
+      merge_base=$(git -C "$repo_dir" merge-base HEAD "$remote_ref" 2>/dev/null || true)
+
+      if [[ -n "$local_head" && -n "$remote_head" && -n "$merge_base" ]]; then
+        if [[ "$local_head" == "$merge_base" && "$local_head" != "$remote_head" ]]; then
+          echo "[wsl-sync] Repo is behind $remote_ref — run: git -C ~/repo/wsl_setup pull --ff-only origin master"
+        elif [[ "$remote_head" != "$merge_base" && "$local_head" != "$remote_head" ]]; then
+          echo "[wsl-sync] Repo has diverged from $remote_ref — review before syncing."
+        fi
+      fi
+    fi
   fi
 }
 _wsl_sync_check
