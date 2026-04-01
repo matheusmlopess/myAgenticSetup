@@ -11,6 +11,7 @@ DRY_RUN=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$SCRIPT_DIR/dotfiles"
 LOG_FILE="$SCRIPT_DIR/sync.log"
+REMOTE_REF="origin/master"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -33,13 +34,101 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
+refresh_last_sync() {
+  local now="$1"
+
+  if $DRY_RUN; then
+    echo "  [dry-run] would update .last_sync to $now"
+  else
+    echo "$now" > "$SCRIPT_DIR/.last_sync"
+  fi
+}
+
+abort_sync() {
+  note "$1"
+  log "Sync aborted — $1"
+  exit 1
+}
+
+print_managed_diff() {
+  local range="$1"
+  local diff_output
+
+  diff_output=$(git diff --name-status "$range" -- dotfiles packages.txt .last_sync 2>/dev/null || true)
+  if [ -n "$diff_output" ]; then
+    echo "$diff_output" | while IFS= read -r line; do
+      note "managed change: $line"
+    done
+  fi
+}
+
+ensure_clean_managed_files() {
+  local dirty
+
+  dirty=$(git status --porcelain -- dotfiles packages.txt 2>/dev/null || true)
+  if [ -n "$dirty" ]; then
+    echo "$dirty" | while IFS= read -r line; do
+      note "local repo change pending: $line"
+    done
+    abort_sync "Managed repo files already have local edits. Commit, stash, or discard them before running sync."
+  fi
+}
+
+fetch_remote_state() {
+  if git fetch --quiet origin master; then
+    info "Fetched latest remote state"
+  else
+    abort_sync "Unable to fetch $REMOTE_REF. Sync requires remote validation before updating managed files."
+  fi
+}
+
+validate_branch_state() {
+  local local_head remote_head merge_base
+
+  local_head=$(git rev-parse HEAD)
+  remote_head=$(git rev-parse "$REMOTE_REF")
+  merge_base=$(git merge-base HEAD "$REMOTE_REF")
+
+  if [ "$local_head" = "$remote_head" ]; then
+    info "Local branch matches $REMOTE_REF"
+    return
+  fi
+
+  if [ "$local_head" = "$merge_base" ]; then
+    print_managed_diff "HEAD..$REMOTE_REF"
+    abort_sync "Local branch is behind $REMOTE_REF. Pull the remote changes before syncing."
+  fi
+
+  if [ "$remote_head" = "$merge_base" ]; then
+    info "Local branch is ahead of $REMOTE_REF"
+    return
+  fi
+
+  print_managed_diff "$merge_base..$REMOTE_REF"
+  abort_sync "Local branch has diverged from $REMOTE_REF. Reconcile the branch before syncing."
+}
+
 echo ""
 echo "========================================"
 echo "  WSL Sync — $(date '+%Y-%m-%d %H:%M')"
 $DRY_RUN && echo "  MODE: DRY RUN (no changes will be made)"
 echo "========================================"
 
-# ── 1. Copy current dotfiles into the repo ────────────────────────────────────
+cd "$SCRIPT_DIR"
+
+# ── 1. Validate repo state ────────────────────────────────────────────────────
+step "Validating repo state"
+
+ensure_clean_managed_files
+
+if git rev-parse --is-inside-work-tree &>/dev/null; then
+  fetch_remote_state
+  validate_branch_state
+else
+  abort_sync "sync.sh must run inside the repo worktree."
+fi
+
+# ── 2. Copy current dotfiles into the repo ────────────────────────────────────
 step "Syncing dotfiles"
 
 DOTFILES=(
@@ -69,7 +158,7 @@ for f in "${DOTFILES[@]}"; do
   fi
 done
 
-# ── 2. Snapshot installed packages ───────────────────────────────────────────
+# ── 3. Snapshot installed packages ───────────────────────────────────────────
 step "Snapshotting installed packages"
 
 PKG_SNAPSHOT="$SCRIPT_DIR/packages.txt"
@@ -107,15 +196,19 @@ else
   info "packages.txt unchanged"
 fi
 
-# ── 3. Commit and push if anything changed ────────────────────────────────────
+# ── 4. Commit and push if anything changed ────────────────────────────────────
 step "Pushing to GitHub"
 
-cd "$SCRIPT_DIR"
+SYNC_TS=$(date +%s)
 
 if ! $DRY_RUN; then
-  # Update timestamp before committing so it's included in the push
-  date +%s > "$SCRIPT_DIR/.last_sync"
-  git add dotfiles/ packages.txt .last_sync 2>/dev/null || true
+  if [ "$CHANGED" = true ]; then
+    # Include the sync timestamp when there is a real snapshot update to publish.
+    refresh_last_sync "$SYNC_TS"
+    git add dotfiles/ packages.txt .last_sync 2>/dev/null || true
+  else
+    git add dotfiles/ packages.txt 2>/dev/null || true
+  fi
 
   if ! git diff --cached --quiet; then
     COMMIT_MSG="chore: sync dotfiles and packages — $(date '+%Y-%m-%d')"
@@ -124,11 +217,17 @@ if ! $DRY_RUN; then
     info "Pushed to GitHub"
     log "Sync complete — changes pushed"
   else
+    refresh_last_sync "$SYNC_TS"
     info "Nothing to commit — repo is up to date"
+    info "Refreshed local .last_sync without creating a commit"
     log "Sync complete — no changes"
   fi
 else
-  echo "  [dry-run] would commit and push if changes detected"
+  if [ "$CHANGED" = true ]; then
+    echo "  [dry-run] would update .last_sync, commit, and push detected changes"
+  else
+    echo "  [dry-run] would refresh local .last_sync without creating a commit"
+  fi
 fi
 
 echo ""

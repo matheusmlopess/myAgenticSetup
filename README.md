@@ -54,7 +54,7 @@ bash setup.sh --dry-run # preview what would happen, no changes made
 
 ### `sync.sh` — Snapshot and push changes
 
-Copies current dotfiles and a snapshot of installed packages into the repo, commits, and pushes. Run manually or let the cron job handle it.
+Validates the repo against `origin/master`, then copies current dotfiles and a snapshot of installed packages into the repo, commits, and pushes. If the local branch is behind or diverged, or if tracked snapshot files already have local edits, sync stops instead of overwriting managed files.
 
 ```bash
 bash sync.sh           # sync and push
@@ -70,7 +70,7 @@ Two mechanisms ensure sync always runs even if WSL was off on the scheduled day:
 
 2. **Terminal startup check** — every time you open a terminal, `.zshrc` reads `.last_sync` and runs sync automatically if 15+ days have passed. This catches the case where WSL was off when cron was supposed to fire.
 
-`.last_sync` is a Unix timestamp file committed to the repo. On a fresh clone it already holds the date of the last sync, so the 15-day window starts correctly without triggering an immediate sync on first boot.
+`.last_sync` is a Unix timestamp file. `sync.sh` refreshes it locally after successful no-op runs, and includes it in the commit when dotfiles or package snapshots actually change. On a fresh clone, the committed value still gives a reasonable starting point for the 15-day window.
 
 To install the cron job on a new machine after cloning:
 
@@ -84,7 +84,7 @@ Sync history is logged to `sync.log`.
 
 ### `check.sh` — Audit current state
 
-Run this anytime to see what's installed, missing, or misconfigured. Useful to verify after setup or to quickly check a machine you haven't touched in a while.
+Run this anytime to see what's installed, missing, or misconfigured. It also checks repo sync status against `origin/master`, warns about local snapshot drift for dotfiles, and flags when the current package snapshot differs from `packages.txt`.
 
 ```bash
 bash check.sh
@@ -103,6 +103,228 @@ Example output:
 
 ── Default Shell ───────────────────────
   [OK]    Default shell is zsh
+```
+
+---
+
+## Workflow
+
+### Overall lifecycle
+
+```text
+                    +----------------------+
+                    |   Fresh clone / use  |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |      setup.sh        |
+                    | install + configure  |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |      check.sh        |
+                    | audit current state  |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |     normal usage     |
+                    | open terminal / work |
+                    +----------+-----------+
+                               |
+                  +------------+-------------+
+                  |                          |
+                  v                          v
+        +-------------------+      +-------------------+
+        | auto sync in      |      | manual sync via   |
+        | dotfiles/.zshrc   |      | sync.sh           |
+        +---------+---------+      +---------+---------+
+                  |                          |
+                  +------------+-------------+
+                               |
+                               v
+                    +----------------------+
+                    |      sync.sh         |
+                    | validate, snapshot,  |
+                    | commit, push         |
+                    +----------------------+
+```
+
+### `setup.sh`
+
+```text
+start
+  |
+  v
+resolve SCRIPT_DIR
+  |
+  v
+install APT packages from packages.txt
+  |
+  v
+install gh if missing
+  |
+  v
+install Node.js if missing
+  |
+  v
+install NVM if missing
+  |
+  v
+install Oh My Zsh if missing
+  |
+  v
+install global npm packages from npm-globals.txt
+  |
+  v
+copy tracked dotfiles/ -> ~/
+  |
+  v
+backup existing home dotfiles before overwrite
+  |
+  v
+set default shell to zsh
+  |
+  v
+optionally run gh auth login
+  |
+  v
+initialize .last_sync
+  |
+  v
+done
+```
+
+### `check.sh`
+
+```text
+start
+  |
+  v
+resolve SCRIPT_DIR
+  |
+  v
+repo sync checks
+  |
+  +--> git fetch origin master
+  |
+  +--> check if managed repo files have local edits
+  |
+  +--> compare HEAD vs origin/master
+  |      - up to date
+  |      - behind
+  |      - ahead
+  |      - diverged
+  |
+  v
+check installed APT packages against packages.txt
+  |
+  v
+check NVM exists
+  |
+  v
+check Oh My Zsh exists
+  |
+  v
+check home dotfiles exist
+  |
+  v
+check snapshot drift
+  |
+  +--> compare ~/.zshrc vs dotfiles/.zshrc
+  +--> compare ~/.bashrc vs dotfiles/.bashrc
+  +--> compare ~/.gitconfig vs dotfiles/.gitconfig
+  +--> compare ~/.npmrc vs dotfiles/.npmrc
+  +--> compare generated package snapshot vs packages.txt
+  |
+  v
+check git user.name / user.email
+  |
+  v
+check gh auth
+  |
+  v
+check default shell
+  |
+  v
+check npm globals from npm-globals.txt
+  |
+  v
+print summary
+```
+
+### `sync.sh`
+
+```text
+start
+  |
+  v
+resolve SCRIPT_DIR
+  |
+  v
+validate repo state
+  |
+  +--> ensure dotfiles/ and packages.txt have no local uncommitted edits
+  |
+  +--> git fetch origin master
+  |
+  +--> compare HEAD vs origin/master
+         - if behind: abort
+         - if diverged: abort
+         - if up to date / ahead: continue
+  |
+  v
+sync dotfiles
+  |
+  +--> for each managed dotfile:
+  |      compare ~/file vs repo dotfiles/file
+  |      if different -> copy home file into repo snapshot
+  |
+  v
+snapshot packages
+  |
+  +--> generate current installed package list
+  +--> compare with packages.txt
+  +--> if different -> overwrite packages.txt
+  |
+  v
+commit/push phase
+  |
+  +--> if dotfiles/packages changed:
+  |      update .last_sync
+  |      git add dotfiles/ packages.txt .last_sync
+  |      git commit
+  |      git push origin master
+  |
+  +--> else:
+         update .last_sync locally only
+         no commit
+         no push
+  |
+  v
+done
+```
+
+### Auto-sync in `.zshrc`
+
+```text
+new shell starts
+  |
+  v
+run _wsl_sync_check()
+  |
+  +--> read .last_sync
+  +--> compute now - last_sync
+  +--> if < 15 days: do nothing
+  +--> if >= 15 days:
+          run sync.sh
+          append output to sync.log
+          if sync succeeds: print "Done."
+  |
+  v
+continue normal shell startup
 ```
 
 ---
@@ -131,7 +353,7 @@ Stored in `dotfiles/` and deployed to `~/` by `setup.sh`. Any existing file is b
 | `.gitconfig` | Git identity + GitHub CLI credential helper      |
 | `.npmrc`     | `package-lock=false`                             |
 
-`.last_sync` is a Unix timestamp file at the repo root. It is committed to the repo by `sync.sh` after every successful push, so a fresh clone always knows when the last sync occurred and won't trigger an immediate sync on first boot.
+`.last_sync` is a Unix timestamp file at the repo root. `sync.sh` refreshes it on successful runs to throttle auto-sync checks, but only commits it when there is a real snapshot change to publish. That avoids timestamp-only commits while still giving fresh clones a usable baseline.
 
 ---
 

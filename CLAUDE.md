@@ -32,7 +32,7 @@ When invoked, your job is to:
 ## Setup Scripts
 
 - `setup.sh` — Full bootstrap (apt packages, NVM, Oh My Zsh, dotfiles, chsh)
-- `check.sh` — Audits current state, reports issues
+- `check.sh` — Audits current state, reports issues, and warns when the repo is behind/diverged from `origin/master`
 
 ## How to Bootstrap a Fresh WSL
 
