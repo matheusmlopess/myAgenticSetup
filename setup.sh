@@ -9,6 +9,7 @@
 #   4. Copies dotfiles (.zshrc, .bashrc, .gitconfig, .npmrc)
 #   5. Sets zsh as the default shell
 #   6. Prompts to authenticate GitHub CLI
+#   7. Installs Python security audit tools via pipx
 
 set -euo pipefail
 
@@ -140,7 +141,32 @@ else
   note "npm-globals.txt not found — skipping"
 fi
 
-# ── 7. Dotfiles ───────────────────────────────────────────────────────────────
+# ── 7. Global Python packages ─────────────────────────────────────────────────
+step "Installing global Python tools (from python-globals.txt)"
+
+if [ -f "$SCRIPT_DIR/python-globals.txt" ]; then
+  if ! command -v pipx &>/dev/null; then
+    note "pipx is required for Python CLI tools but was not found"
+  else
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+      pkg="${line%%:*}"
+      cmd="${line##*:}"
+      [[ "$cmd" == "$pkg" ]] && cmd="$pkg"
+      if command -v "$cmd" &>/dev/null; then
+        info "$pkg already installed"
+      else
+        note "Installing $pkg..."
+        run pipx install "$pkg"
+        info "$pkg installed"
+      fi
+    done < "$SCRIPT_DIR/python-globals.txt"
+  fi
+else
+  note "python-globals.txt not found — skipping"
+fi
+
+# ── 8. Dotfiles ───────────────────────────────────────────────────────────────
 step "Copying dotfiles"
 
 copy_dotfile() {
@@ -192,7 +218,7 @@ else
   note "git user.email left unset"
 fi
 
-# ── 8. Default shell ──────────────────────────────────────────────────────────
+# ── 9. Default shell ──────────────────────────────────────────────────────────
 step "Setting zsh as default shell"
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
 if [[ "$CURRENT_SHELL" == *"zsh"* ]]; then
@@ -202,7 +228,7 @@ else
   info "Default shell set to zsh (restart terminal to apply)"
 fi
 
-# ── 9. GitHub CLI auth ────────────────────────────────────────────────────────
+# ── 10. GitHub CLI auth ───────────────────────────────────────────────────────
 step "GitHub CLI authentication"
 if gh auth status &>/dev/null 2>&1; then
   info "gh is already authenticated"
@@ -218,7 +244,7 @@ else
   fi
 fi
 
-# ── 10. Initialise sync timestamp ────────────────────────────────────────────
+# ── 11. Initialise sync timestamp ────────────────────────────────────────────
 step "Initialising sync timestamp"
 run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync\""
 info ".last_sync created — first auto-sync will run in 15 days"

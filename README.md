@@ -29,7 +29,7 @@ exec zsh
 | Shell          | zsh, Oh My Zsh (random theme), git + git-prompt plugins |
 | Version mgmt   | NVM                                                |
 | Runtime        | Node.js 20.x, npm, python3, pip, venv             |
-| Dev tools      | git, gh (GitHub CLI), make, gcc, build-essential  |
+| Dev tools      | git, gh (GitHub CLI), make, gcc, build-essential, pipx |
 | Utilities      | curl, wget, jq, unzip, htop                       |
 
 ## What Gets Configured
@@ -253,8 +253,20 @@ check default shell
 check npm globals from npm-globals.txt
   |
   v
+check Python tools from python-globals.txt
+  |
+  v
 print summary
 ```
+
+### `python-globals.txt` — Security audit toolchain
+
+Tracks Python CLI tools installed with `pipx`. `setup.sh` installs them and `check.sh` verifies them so the security audit workflow has the expected tooling available.
+
+Current tools:
+- `bandit`
+- `pip-audit`
+- `safety`
 
 ### `sync.sh`
 

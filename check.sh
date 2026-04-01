@@ -266,6 +266,27 @@ else
   warn "npm-globals.txt not found — skipping"
 fi
 
+# ── 9. Global Python tools ────────────────────────────────────────────────────
+echo ""
+echo "── Global Python tools ─────────────────"
+
+if [ -f "$SCRIPT_DIR/python-globals.txt" ]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+    pkg="${line%%:*}"
+    cmd="${line##*:}"
+    [[ "$cmd" == "$pkg" ]] && cmd="$pkg"
+    if command -v "$cmd" &>/dev/null; then
+      ok "$pkg ($cmd)"
+    else
+      miss "$pkg — not installed globally"
+      ISSUES=$((ISSUES+1))
+    fi
+  done < "$SCRIPT_DIR/python-globals.txt"
+else
+  warn "python-globals.txt not found — skipping"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo "========================================"

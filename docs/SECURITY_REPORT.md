@@ -1,45 +1,25 @@
 ### 2026-04-01 — Security Audit: repository root (`/home/magooo/repo/wsl_setup`)
 
-**Files audited:** 12
-**Total findings:** 4 (Critical: 0 | High: 2 | Medium: 0 | Low: 1 | Info: 1)
+**Files audited:** 13
+**Total findings:** 2 (Critical: 0 | High: 1 | Medium: 0 | Low: 0 | Info: 1)
 
 ---
 
-#### [HIGH] — Automatic sync can publish secrets from home directory dotfiles to GitHub
+#### [HIGH] — Vulnerable Python package versions are tracked in the environment snapshot
 
-**File:** `sync.sh` (line 134)
-**Description:** The sync workflow copies live files from `$HOME` into the repository and then pushes them to `origin/master` without any content inspection for secrets. This is especially risky for `.npmrc` and `.gitconfig`, which commonly contain auth tokens, private registry credentials, or machine-specific credential helpers. Because the repo is intended to be pushed to GitHub, any future secret added to one of those dotfiles can be exfiltrated automatically.
-**Evidence:** `sync.sh` copies `.zshrc`, `.bashrc`, `.gitconfig`, and `.npmrc` from `$HOME` (`lines 134-155`) and then stages and pushes them with `git push origin master` (`lines 208-216`).
-**Recommendation:** Remove secret-bearing files such as `.npmrc` and `.gitconfig` from the auto-sync set, or sanitize them before commit. Add a pre-push secret scan (for example `gitleaks` or `trufflehog`) and block the push on findings. Prefer explicit user approval before publishing dotfile changes.
-**References:** OWASP A02 Cryptographic Failures, OWASP A09 Security Logging and Monitoring Failures, OWASP Secrets Management Cheat Sheet
-
----
-
-#### [HIGH] — Terminal startup triggers unattended `git push` behavior
-
-**File:** `dotfiles/.zshrc` (line 120)
-**Description:** Opening a shell can automatically execute `sync.sh`, which performs network operations and may commit and push repository changes. This creates a non-interactive publication path tied to terminal startup rather than an intentional release step. In practice, that increases the chance of pushing sensitive local changes or manipulated config snapshots without review.
-**Evidence:** `_wsl_sync_check()` in `dotfiles/.zshrc` runs `bash "$sync_script" >> "$log_file" 2>&1` when 15 days have elapsed (`lines 121-136`). `sync.sh` then commits and pushes if changes are detected (`lines 213-216`).
-**Recommendation:** Remove auto-push behavior from shell startup. Limit startup behavior to a notification that sync is due, and require an explicit interactive command to commit and push. If automation is required, run only a dry-run diff from startup and require confirmation before any network write.
-**References:** OWASP A04 Insecure Design
-
----
-
-#### [LOW] — Tracked dotfile snapshot exposes personal email address
-
-**File:** `dotfiles/.gitconfig` (line 3)
-**Description:** The repository stores a real personal email address in a tracked config file. This is not a credential by itself, but it is unnecessary personal data exposure if the repository is shared publicly or broadly within an organization.
-**Evidence:** `email =matheusmlopess@gmail.com`
-**Recommendation:** Replace the committed identity with a placeholder template, environment-specific bootstrap step, or a documented post-setup manual configuration step. Keep personal identity values out of version-controlled dotfile snapshots.
-**References:** OWASP A01 Broken Access Control (data exposure context), Principle of Least Exposure
+**File:** `packages.txt` (line 43)
+**Description:** The tracked pip package snapshot contains multiple versions with known published vulnerabilities. This repository is explicitly intended to recreate the workstation state, so keeping vulnerable versions in the snapshot increases the chance that future machines inherit known issues. The `safety` scan reported 26 vulnerabilities across 11 packages in the tracked pip section.
+**Evidence:** Representative vulnerable entries in `packages.txt` include `certifi==2023.11.17` (`line 47`), `Jinja2==3.1.2` (`line 59`), `pip==24.0` (`line 67`), `requests==2.31.0` (`line 77`), `setuptools==68.1.2` (`line 80`), `Twisted==24.3.0` (`line 82`), `urllib3==2.0.7` (`line 86`), and `wheel==0.42.0` (`line 88`). `safety check -r /tmp/wsl_setup_pip_requirements.txt` reported vulnerabilities affecting those packages, including CVE-2024-39689 (`certifi`), CVE-2024-34064 / CVE-2025-27516 (`Jinja2`), CVE-2024-35195 / CVE-2024-47081 (`requests`), CVE-2024-6345 / CVE-2025-47273 (`setuptools`), CVE-2024-41671 / CVE-2024-41810 (`Twisted`), multiple 2024-2026 advisories for `urllib3`, and CVE-2026-24049 (`wheel`).
+**Recommendation:** Refresh the pip snapshot to patched versions before using it as a baseline. At minimum, review and upgrade the packages flagged by `safety`, regenerate `packages.txt`, and re-run the audit. If these packages are primarily OS-managed rather than intentionally installed, exclude them from the tracked pip snapshot so the repo only preserves packages you actually mean to reproduce.
+**References:** OWASP A06 Vulnerable and Outdated Components
 
 ---
 
 #### [INFO] — Bootstrap process executes remote scripts directly without integrity verification
 
-**File:** `setup.sh` (line 85)
-**Description:** The setup flow downloads and executes remote installation scripts directly from network locations, including one path that executes with `sudo`. This is a common bootstrap shortcut, but it expands supply-chain risk because the host fully trusts live remote content at execution time.
-**Evidence:** `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -` (`line 85`), `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash` (`line 96`), and `sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"` (`line 106`).
+**File:** `setup.sh` (line 98)
+**Description:** The setup flow still downloads and executes remote installation scripts directly from network locations, including one path that executes with `sudo`. This remains a supply-chain hardening gap because the host trusts live remote content at execution time.
+**Evidence:** `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -` (`line 98`), `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash` (`line 109`), and `sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"` (`line 119`).
 **Recommendation:** Download installers to disk, verify signatures or pinned checksums, and then execute only verified artifacts. Prefer repository packages or version-pinned release assets where possible.
 **References:** OWASP A08 Software and Data Integrity Failures
 
@@ -47,9 +27,10 @@
 
 #### Summary & Recommendations
 
-Overall risk is **high** because the design combines auto-executed sync logic with automatic Git pushes of user home-directory configuration files. The most important remediation is to stop publishing dotfiles from shell startup and to treat `.npmrc` and `.gitconfig` as potentially sensitive inputs unless they are sanitized first.
+Overall risk is **medium-to-high** because the repo no longer auto-publishes sensitive dotfiles, but it still preserves a Python package snapshot with multiple known vulnerable versions. The highest-priority remediation is to decide whether the pip section in `packages.txt` should be tracked at all; if yes, upgrade the flagged packages and regenerate the snapshot.
 
 Additional audit notes:
-- `bandit`, `pip-audit`, and `safety` were not installed in the environment.
-- `npm audit --json` was not applicable because the repository has no `package.json`/lockfile-based Node project to audit.
-- No hardcoded secrets or private keys were found in the audited repository files.
+- `bandit -r . -f json` completed successfully and reported no findings in the repository source files.
+- `safety check -r /tmp/wsl_setup_pip_requirements.txt` completed successfully and reported 26 vulnerabilities across 11 packages from the tracked pip snapshot.
+- `pip-audit -r /tmp/wsl_setup_pip_requirements.txt` could not fully resolve the snapshot because distro-specific packages such as `cloud-init==25.1.4` are not available from PyPI, so its results were incomplete.
+- `npm audit --json` remains not applicable because the repository does not contain a `package.json`/lockfile-based Node project.

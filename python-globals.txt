@@ -1,0 +1,8 @@
+# Global Python CLI tools to install with pipx
+# One package per line. Lines starting with # are ignored.
+# Format: <package-name>[:<command-to-check>]
+# If no :<command> is given, the package name itself is used as the command.
+
+bandit
+pip-audit
+safety

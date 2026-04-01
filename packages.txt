@@ -28,6 +28,7 @@ network-manager
 nodejs
 npm
 python3-pip
+pipx
 python3-venv
 ubuntu-minimal
 ubuntu-wsl
