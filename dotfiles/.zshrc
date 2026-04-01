@@ -132,7 +132,7 @@ _wsl_sync_check() {
 
   if (( now - last >= interval )); then
     echo "[wsl-sync] 15 days since last sync — running now..."
-    bash "$sync_script" >> "$log_file" 2>&1 && echo "[wsl-sync] Done."
+    bash "$sync_script" >> "$log_file" 2>&1 && echo "$now" > "$stamp_file" && echo "[wsl-sync] Done."
   fi
 }
 _wsl_sync_check

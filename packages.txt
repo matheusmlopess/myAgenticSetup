@@ -1,33 +1,87 @@
-# APT packages to install on fresh WSL
-# One package per line. Lines starting with # are ignored.
+# APT packages explicitly installed (auto-generated 2026-04-01)
+# Do not edit manually — updated by sync.sh
 
-# Core tools
-git
-curl
-wget
-zsh
+## APT (manually installed)
+base-files
+bash
+bsdutils
 build-essential
-make
-
-# GitHub CLI
+chromium-browser
+coreutils
+dash
+debianutils
+diffutils
+findutils
 gh
-
-# Node.js ecosystem (via NodeSource or system)
+grep
+gzip
+hostname
+htop
+init
+jq
+libattr1
+login
+lynx
+ncurses-base
+ncurses-bin
+network-manager
 nodejs
 npm
-
-# Python
-python3
 python3-pip
 python3-venv
-
-# Utilities
+ubuntu-minimal
+ubuntu-wsl
 unzip
-jq
-htop
-tmux
-vim
-byobu
-rsync
-bc
-eslint
+util-linux
+zsh
+
+## npm global packages
+mermaid-cli
+codex
+
+## pip3 global packages
+Babel==2.10.3
+bcrypt==3.2.2
+blinker==1.7.0
+certifi==2023.11.17
+chardet==5.2.0
+click==8.1.6
+cloud-init==25.1.4
+colorama==0.4.6
+command-not-found==0.3
+configobj==5.0.8
+dbus-python==1.3.2
+distro==1.9.0
+distro-info==1.7+build1
+gyp==0.1
+idna==3.6
+Jinja2==3.1.2
+jsonpatch==1.32
+jsonpointer==2.0
+jsonschema==4.10.3
+launchpadlib==1.11.0
+MarkupSafe==2.1.5
+netifaces==0.11.0
+oauthlib==3.2.2
+pip==24.0
+pycurl==7.45.3
+PyGObject==3.48.2
+PyHamcrest==2.1.0
+PyJWT==2.7.0
+pyOpenSSL==23.2.0
+pyserial==3.5
+python-apt==2.7.7+ubuntu5.1
+pytz==2024.1
+PyYAML==6.0.1
+requests==2.31.0
+rich==13.7.1
+service-identity==24.1.0
+setuptools==68.1.2
+systemd-python==235
+Twisted==24.3.0
+typing_extensions==4.10.0
+ubuntu-pro-client==8001
+unattended-upgrades==0.1
+urllib3==2.0.7
+wadllib==1.3.6
+wheel==0.42.0
