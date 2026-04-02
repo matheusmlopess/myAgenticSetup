@@ -180,7 +180,13 @@ start
 resolve SCRIPT_DIR
   |
   v
+pre-flight: remove stale Chromium PPAs if present
+  |
+  v
 install APT packages from packages.txt
+  |
+  v
+install Chromium (WSL-safe: PPA on focal/jammy, skip on noble+)
   |
   v
 install gh if missing
@@ -251,6 +257,7 @@ repo sync checks
   |
   v
 check installed APT packages against packages.txt
+  |      (chromium-browser skipped on Ubuntu 24.04+)
   |
   v
 check NVM exists
@@ -314,8 +321,10 @@ validate repo state
   |
   +--> git fetch origin master
   |
+  +--> ensure worktree is on master branch with no unrelated edits
+  |
   +--> compare HEAD vs origin/master
-         - if behind: abort
+         - if behind: git pull --ff-only, then continue
          - if ahead: abort
          - if diverged: abort
          - if up to date: continue
