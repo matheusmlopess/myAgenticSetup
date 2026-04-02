@@ -1,0 +1,17 @@
+# APT packages to install on a fresh machine
+# One package per line. Lines starting with # are ignored.
+# This is the install manifest — edit this list to change what setup.sh installs.
+# Do NOT confuse with packages.txt which is the auto-generated live snapshot.
+
+curl
+git
+zsh
+gh
+jq
+htop
+pipx
+python3-pip
+python3-venv
+unzip
+lynx
+npm

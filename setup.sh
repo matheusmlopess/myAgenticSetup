@@ -41,6 +41,8 @@ run() {
   fi
 }
 
+export PATH="$HOME/.local/bin:$PATH"
+
 echo ""
 echo "========================================"
 echo "  WSL Setup — $(date '+%Y-%m-%d %H:%M')"
@@ -55,32 +57,32 @@ if ls /etc/apt/sources.list.d/ 2>/dev/null | grep -q "saiarcot895"; then
 fi
 
 # ── 1. APT packages ───────────────────────────────────────────────────────────
-step "Installing APT packages (from packages.txt)"
+step "Installing APT packages (from packages-desired.txt)"
 
 run sudo apt-get update -qq
-IN_APT_SECTION=false
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" == "## APT (manually installed)" ]]; then
-    IN_APT_SECTION=true
-    continue
-  fi
-  if [[ "$line" == "## "* ]]; then
-    IN_APT_SECTION=false
-    continue
-  fi
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
-  [[ "$IN_APT_SECTION" != true ]] && continue
   pkg="${line%% *}"
   # chromium-browser is handled separately (WSL snap workaround)
   [[ "$pkg" == "chromium-browser" ]] && continue
+  # npm is bundled with NodeSource nodejs — skip apt if already available, or fall through gracefully
+  if [[ "$pkg" == "npm" ]] && command -v npm &>/dev/null; then
+    info "npm already installed (via NodeSource/NVM) — skipping apt"
+    continue
+  fi
   if dpkg -s "$pkg" &>/dev/null 2>&1; then
     info "$pkg already installed"
   else
     note "Installing $pkg..."
-    run sudo apt-get install -y -qq "$pkg"
-    info "$pkg installed"
+    if [[ "$pkg" == "npm" ]]; then
+      run sudo apt-get install -y -qq "$pkg" 2>/dev/null || note "npm apt install skipped — npm will be provided by NodeSource nodejs (step 4)"
+    else
+      run sudo apt-get install -y -qq "$pkg"
+      info "$pkg installed"
+    fi
+    dpkg -s "$pkg" &>/dev/null 2>&1 && info "$pkg installed"
   fi
-done < "$SCRIPT_DIR/packages.txt"
+done < "$SCRIPT_DIR/packages-desired.txt"
 
 # ── 2. Chromium (WSL-safe) ────────────────────────────────────────────────────
 step "Installing Chromium Browser"
@@ -160,7 +162,7 @@ if [ -f "$SCRIPT_DIR/npm-globals.txt" ]; then
       info "$pkg already installed"
     else
       note "Installing $pkg..."
-      run npm install -g "$pkg"
+      run sudo npm install -g "$pkg"
       info "$pkg installed"
     fi
   done < "$SCRIPT_DIR/npm-globals.txt"
@@ -185,6 +187,7 @@ if [ -f "$SCRIPT_DIR/python-globals.txt" ]; then
   if ! command -v pipx &>/dev/null; then
     note "pipx is required for Python CLI tools but was not found"
   else
+    run pipx ensurepath >/dev/null 2>&1 || true
     while IFS= read -r line || [[ -n "$line" ]]; do
       [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
       pkg="${line%%:*}"

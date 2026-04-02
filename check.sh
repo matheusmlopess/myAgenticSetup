@@ -110,32 +110,21 @@ echo ""
 echo "── APT Packages ────────────────────────"
 
 UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || echo "")
-IN_APT_SECTION=false
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" == "## APT (manually installed)" ]]; then
-    IN_APT_SECTION=true
-    continue
-  fi
-  if [[ "$line" == "## "* ]]; then
-    IN_APT_SECTION=false
-    continue
-  fi
-  # skip comments and blank lines
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
-  [[ "$IN_APT_SECTION" != true ]] && continue
-  pkg="${line%% *}"  # strip inline comments
+  pkg="${line%% *}"
   # chromium-browser is not installable on Ubuntu 24.04+ (noble) — skip check
   if [[ "$pkg" == "chromium-browser" ]] && [[ "$UBUNTU_CODENAME" != "focal" && "$UBUNTU_CODENAME" != "jammy" ]]; then
     warn "chromium-browser — skipped (not supported on Ubuntu $UBUNTU_CODENAME)"
     continue
   fi
-  if dpkg -s "$pkg" &>/dev/null 2>&1; then
+  if dpkg -s "$pkg" &>/dev/null 2>&1 || { [[ "$pkg" == "npm" ]] && command -v npm &>/dev/null; }; then
     ok "$pkg"
   else
     miss "$pkg — not installed (apt)"
     ISSUES=$((ISSUES+1))
   fi
-done < "$SCRIPT_DIR/packages.txt"
+done < "$SCRIPT_DIR/packages-desired.txt"
 
 # ── 2. NVM ───────────────────────────────────────────────────────────────────
 echo ""

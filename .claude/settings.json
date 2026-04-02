@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OUTPUT=$(bash check.sh 2>&1); jq -n --arg out \"$OUTPUT\" '{\"suppressOutput\":true,\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":(\"WSL environment check ran at startup. Results:\\n\\n\" + $out + \"\\n\\nYou MUST now follow the CLAUDE.md agent behavior: (1) Summarize what is missing or misconfigured in plain language, (2) Offer to run setup.sh to fix issues, (3) Note any interactive steps like gh auth login that the user must run themselves.\")}}'",
+            "timeout": 30,
+            "statusMessage": "Running WSL environment check..."
+          }
+        ]
+      }
+    ]
+  }
+}
