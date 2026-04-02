@@ -65,12 +65,22 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   pkg="${line%% *}"
   # chromium-browser is handled separately (WSL snap workaround)
   [[ "$pkg" == "chromium-browser" ]] && continue
+  # npm is bundled with NodeSource nodejs — skip apt if already available, or fall through gracefully
+  if [[ "$pkg" == "npm" ]] && command -v npm &>/dev/null; then
+    info "npm already installed (via NodeSource/NVM) — skipping apt"
+    continue
+  fi
   if dpkg -s "$pkg" &>/dev/null 2>&1; then
     info "$pkg already installed"
   else
     note "Installing $pkg..."
-    run sudo apt-get install -y -qq "$pkg"
-    info "$pkg installed"
+    if [[ "$pkg" == "npm" ]]; then
+      run sudo apt-get install -y -qq "$pkg" 2>/dev/null || note "npm apt install skipped — npm will be provided by NodeSource nodejs (step 4)"
+    else
+      run sudo apt-get install -y -qq "$pkg"
+      info "$pkg installed"
+    fi
+    dpkg -s "$pkg" &>/dev/null 2>&1 && info "$pkg installed"
   fi
 done < "$SCRIPT_DIR/packages-desired.txt"
 
