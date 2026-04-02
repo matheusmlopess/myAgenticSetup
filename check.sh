@@ -118,7 +118,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     warn "chromium-browser — skipped (not supported on Ubuntu $UBUNTU_CODENAME)"
     continue
   fi
-  if dpkg -s "$pkg" &>/dev/null 2>&1; then
+  if dpkg -s "$pkg" &>/dev/null 2>&1 || { [[ "$pkg" == "npm" ]] && command -v npm &>/dev/null; }; then
     ok "$pkg"
   else
     miss "$pkg — not installed (apt)"
