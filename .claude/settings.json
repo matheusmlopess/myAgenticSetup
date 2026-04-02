@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /home/magooo/repo/wsl_setup && bash check.sh",
+            "command": "bash check.sh",
             "timeout": 30,
             "statusMessage": "Running WSL environment check..."
           }

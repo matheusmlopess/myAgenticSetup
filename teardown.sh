@@ -46,17 +46,21 @@ echo "========================================"
 step "Uninstalling global npm packages"
 
 if [ -f "$SCRIPT_DIR/npm-globals.txt" ]; then
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
-    pkg="${line%%:*}"
-    if npm list -g --depth=0 "$pkg" &>/dev/null 2>&1; then
-      note "Removing $pkg..."
-      run npm uninstall -g "$pkg"
-      info "$pkg removed"
-    else
-      info "$pkg not installed — skipping"
-    fi
-  done < "$SCRIPT_DIR/npm-globals.txt"
+  if command -v npm &>/dev/null; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
+      pkg="${line%%:*}"
+      if npm list -g --depth=0 "$pkg" &>/dev/null 2>&1; then
+        note "Removing $pkg..."
+        run npm uninstall -g "$pkg"
+        info "$pkg removed"
+      else
+        info "$pkg not installed — skipping"
+      fi
+    done < "$SCRIPT_DIR/npm-globals.txt"
+  else
+    note "npm not found — skipping"
+  fi
 else
   note "npm-globals.txt not found — skipping"
 fi
