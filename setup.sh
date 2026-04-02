@@ -41,6 +41,8 @@ run() {
   fi
 }
 
+export PATH="$HOME/.local/bin:$PATH"
+
 echo ""
 echo "========================================"
 echo "  WSL Setup — $(date '+%Y-%m-%d %H:%M')"
@@ -185,6 +187,7 @@ if [ -f "$SCRIPT_DIR/python-globals.txt" ]; then
   if ! command -v pipx &>/dev/null; then
     note "pipx is required for Python CLI tools but was not found"
   else
+    run pipx ensurepath >/dev/null 2>&1 || true
     while IFS= read -r line || [[ -n "$line" ]]; do
       [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
       pkg="${line%%:*}"
