@@ -157,7 +157,14 @@ validate_branch_state() {
 
   if [ "$local_head" = "$merge_base" ] && [ "$local_head" != "$remote_head" ]; then
     print_managed_diff "HEAD..$REMOTE_REF"
-    abort_sync "Local $BASE_BRANCH is behind $REMOTE_REF. Pull the remote changes before syncing."
+    note "Local $BASE_BRANCH is behind $REMOTE_REF — pulling automatically"
+    if ! $DRY_RUN; then
+      git pull --ff-only "$REMOTE_NAME" "$BASE_BRANCH" || abort_sync "Auto-pull failed. Resolve manually before syncing."
+      info "Pulled latest changes from $REMOTE_REF"
+    else
+      echo "  [dry-run] would run: git pull --ff-only $REMOTE_NAME $BASE_BRANCH"
+    fi
+    return
   fi
 
   if [ "$remote_head" = "$merge_base" ] && [ "$local_head" != "$remote_head" ]; then

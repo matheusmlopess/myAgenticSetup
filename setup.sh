@@ -47,6 +47,13 @@ echo "  WSL Setup — $(date '+%Y-%m-%d %H:%M')"
 $DRY_RUN && echo "  MODE: DRY RUN (no changes will be made)"
 echo "========================================"
 
+# ── 0. Pre-flight: clean up any stale PPAs ────────────────────────────────────
+if ls /etc/apt/sources.list.d/ 2>/dev/null | grep -q "saiarcot895"; then
+  note "Removing incompatible Chromium PPA (leftover from a previous run)..."
+  run sudo rm -f /etc/apt/sources.list.d/*saiarcot895*
+  run sudo rm -f /etc/apt/trusted.gpg.d/*saiarcot895*
+fi
+
 # ── 1. APT packages ───────────────────────────────────────────────────────────
 step "Installing APT packages (from packages.txt)"
 
@@ -64,6 +71,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
   [[ "$IN_APT_SECTION" != true ]] && continue
   pkg="${line%% *}"
+  # chromium-browser is handled separately (WSL snap workaround)
+  [[ "$pkg" == "chromium-browser" ]] && continue
   if dpkg -s "$pkg" &>/dev/null 2>&1; then
     info "$pkg already installed"
   else
@@ -73,7 +82,22 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   fi
 done < "$SCRIPT_DIR/packages.txt"
 
-# ── 2. GitHub CLI ─────────────────────────────────────────────────────────────
+# ── 2. Chromium (WSL-safe) ────────────────────────────────────────────────────
+step "Installing Chromium Browser"
+UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || echo "")
+if command -v chromium-browser &>/dev/null || command -v chromium &>/dev/null; then
+  info "chromium already installed"
+elif [[ "$UBUNTU_CODENAME" == "focal" || "$UBUNTU_CODENAME" == "jammy" ]]; then
+  note "Installing Chromium via PPA (Ubuntu $UBUNTU_CODENAME)..."
+  run sudo add-apt-repository -y ppa:saiarcot895/chromium-beta
+  run sudo apt-get update -qq
+  run sudo apt-get install -y chromium-browser
+  info "chromium-browser installed"
+else
+  note "Skipping Chromium — Ubuntu $UBUNTU_CODENAME not supported by this installer (requires focal or jammy)"
+fi
+
+# ── 3. GitHub CLI ─────────────────────────────────────────────────────────────
 step "Installing GitHub CLI (gh)"
 if command -v gh &>/dev/null; then
   info "gh already installed ($(gh --version | head -1))"
@@ -92,7 +116,7 @@ else
   info "gh installed"
 fi
 
-# ── 3. Node.js via NodeSource ─────────────────────────────────────────────────
+# ── 4. Node.js via NodeSource ─────────────────────────────────────────────────
 step "Installing Node.js"
 if command -v node &>/dev/null; then
   info "node already installed ($(node --version))"
@@ -103,7 +127,7 @@ else
   info "node installed"
 fi
 
-# ── 4. NVM ────────────────────────────────────────────────────────────────────
+# ── 5. NVM ────────────────────────────────────────────────────────────────────
 step "Installing NVM"
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
   info "NVM already installed"
@@ -113,7 +137,7 @@ else
   info "NVM installed"
 fi
 
-# ── 5. Oh My Zsh ─────────────────────────────────────────────────────────────
+# ── 6. Oh My Zsh ─────────────────────────────────────────────────────────────
 step "Installing Oh My Zsh"
 if [ -d "$HOME/.oh-my-zsh" ]; then
   info "Oh My Zsh already installed"
@@ -123,7 +147,7 @@ else
   info "Oh My Zsh installed"
 fi
 
-# ── 6. Global npm packages ────────────────────────────────────────────────────
+# ── 7. Global npm packages ────────────────────────────────────────────────────
 step "Installing global npm packages (from npm-globals.txt)"
 
 if [ -f "$SCRIPT_DIR/npm-globals.txt" ]; then
@@ -144,7 +168,7 @@ else
   note "npm-globals.txt not found — skipping"
 fi
 
-# ── 7. Claude CLI ──────────────────────────────────────────────────────────────
+# ── 8. Claude CLI ──────────────────────────────────────────────────────────────
 step "Installing Claude CLI"
 if command -v claude &>/dev/null; then
   info "claude already installed"
@@ -154,7 +178,7 @@ else
   info "claude installed"
 fi
 
-# ── 8. Global Python packages ─────────────────────────────────────────────────
+# ── 9. Global Python packages ─────────────────────────────────────────────────
 step "Installing global Python tools (from python-globals.txt)"
 
 if [ -f "$SCRIPT_DIR/python-globals.txt" ]; then
@@ -179,7 +203,7 @@ else
   note "python-globals.txt not found — skipping"
 fi
 
-# ── 9. Dotfiles ───────────────────────────────────────────────────────────────
+# ── 10. Dotfiles ───────────────────────────────────────────────────────────────
 step "Copying dotfiles"
 
 copy_dotfile() {
@@ -231,7 +255,7 @@ else
   note "git user.email left unset"
 fi
 
-# ── 10. Default shell ─────────────────────────────────────────────────────────
+# ── 11. Default shell ─────────────────────────────────────────────────────────
 step "Setting zsh as default shell"
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
 if [[ "$CURRENT_SHELL" == *"zsh"* ]]; then
@@ -241,7 +265,7 @@ else
   info "Default shell set to zsh (restart terminal to apply)"
 fi
 
-# ── 11. GitHub CLI auth ───────────────────────────────────────────────────────
+# ── 12. GitHub CLI auth ───────────────────────────────────────────────────────
 step "GitHub CLI authentication"
 if gh auth status &>/dev/null 2>&1; then
   info "gh is already authenticated"
@@ -257,7 +281,7 @@ else
   fi
 fi
 
-# ── 12. Initialise sync timestamp ────────────────────────────────────────────
+# ── 13. Initialise sync timestamp ────────────────────────────────────────────
 step "Initialising sync timestamp"
 run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync.local\""
 info ".last_sync.local created — first auto-sync will run in 15 days"

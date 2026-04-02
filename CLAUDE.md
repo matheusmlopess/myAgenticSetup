@@ -69,13 +69,9 @@ When the user opens Claude in this directory (e.g., on a fresh WSL install), you
    git status -sb
    ```
    Compare local branch against `origin/master`. If the local repo is **behind** the remote:
-   - Report how many commits are behind
-   - Present the following options to the user:
-     - **[1] Pull updates** — run `git pull origin master` to sync
-     - **[2] View changes** — run `git log HEAD..origin/master --oneline` to preview what's new
-     - **[3] Skip** — continue without updating
-   - Wait for the user to choose before proceeding.
-   - If the user picks **[1]**, pull and confirm success, then re-run `check.sh` to apply any new setup steps.
+   - Automatically run `git pull --ff-only origin master` to sync
+   - Report how many commits were pulled
+   - Re-run `check.sh` to apply any new setup steps
 
 Do not make assumptions about what's installed — always run `check.sh` first.
 Do not pull or modify the repo without explicit user confirmation.

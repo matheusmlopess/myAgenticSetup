@@ -109,6 +109,7 @@ check_repo_sync_status
 echo ""
 echo "── APT Packages ────────────────────────"
 
+UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || echo "")
 IN_APT_SECTION=false
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" == "## APT (manually installed)" ]]; then
@@ -123,6 +124,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
   [[ "$IN_APT_SECTION" != true ]] && continue
   pkg="${line%% *}"  # strip inline comments
+  # chromium-browser is not installable on Ubuntu 24.04+ (noble) — skip check
+  if [[ "$pkg" == "chromium-browser" ]] && [[ "$UBUNTU_CODENAME" != "focal" && "$UBUNTU_CODENAME" != "jammy" ]]; then
+    warn "chromium-browser — skipped (not supported on Ubuntu $UBUNTU_CODENAME)"
+    continue
+  fi
   if dpkg -s "$pkg" &>/dev/null 2>&1; then
     ok "$pkg"
   else
