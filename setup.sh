@@ -57,21 +57,11 @@ if ls /etc/apt/sources.list.d/ 2>/dev/null | grep -q "saiarcot895"; then
 fi
 
 # ── 1. APT packages ───────────────────────────────────────────────────────────
-step "Installing APT packages (from packages.txt)"
+step "Installing APT packages (from packages-desired.txt)"
 
 run sudo apt-get update -qq
-IN_APT_SECTION=false
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" == "## APT (manually installed)" ]]; then
-    IN_APT_SECTION=true
-    continue
-  fi
-  if [[ "$line" == "## "* ]]; then
-    IN_APT_SECTION=false
-    continue
-  fi
   [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
-  [[ "$IN_APT_SECTION" != true ]] && continue
   pkg="${line%% *}"
   # chromium-browser is handled separately (WSL snap workaround)
   [[ "$pkg" == "chromium-browser" ]] && continue
@@ -82,7 +72,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     run sudo apt-get install -y -qq "$pkg"
     info "$pkg installed"
   fi
-done < "$SCRIPT_DIR/packages.txt"
+done < "$SCRIPT_DIR/packages-desired.txt"
 
 # ── 2. Chromium (WSL-safe) ────────────────────────────────────────────────────
 step "Installing Chromium Browser"
