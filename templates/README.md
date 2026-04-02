@@ -1,53 +1,48 @@
-# Template Layout Rules
-
-These templates follow one explicit boundary:
-
-- Codex runtime capabilities are outside the project
-- Claude project capabilities are inside the project
-
-## Outside The Project
-
-Codex-managed runtime assets belong in the user environment, not in the repository:
-
 ```text
-~/.codex/
-├── config.toml
-├── skills/
-└── plugins/
-
-~/.agents/
-└── plugins/
-    └── marketplace.json
-```
-
-## Copy-Paste Starter Layout
-
-```text
-EXTERNAL TO THE PROJECT
+SYSTEM / USER LEVEL
 
 ~/.codex/
 ├── config.toml
 ├── skills/
-└── plugins/
+│   ├── some-marketplace-skill/
+│   │   └── SKILL.md
+│   └── ...
+├── plugins/
+│   ├── some-plugin/
+│   │   ├── .codex-plugin/
+│   │   │   └── plugin.json
+│   │   └── skills/
+│   └── ...
+└── ...
 
 ~/.agents/
 └── plugins/
     └── marketplace.json
 
-PROJECT
+PROJECT LEVEL
 
 your-saas/
 ├── AGENTS.md
 ├── CLAUDE.md
 ├── .mcp.json
+├── .claude/
+│   ├── skills/
+│   │   ├── saas-architect/
+│   │   │   └── SKILL.md
+│   │   └── release-manager/
+│   │       └── SKILL.md
+│   ├── agents/
+│   │   ├── product-architect.md
+│   │   ├── backend-engineer.md
+│   │   └── frontend-engineer.md
+│   └── commands/
+│       ├── plan.md
+│       ├── review.md
+│       └── ship.md
 ├── .codex/
 │   ├── config.toml.example
 │   ├── prompts/
 │   └── mcp/
-├── .claude/
-│   ├── skills/
-│   ├── agents/
-│   └── commands/
 ├── ai/
 │   ├── context/
 │   ├── standards/
@@ -82,144 +77,36 @@ your-saas/
     └── workflows/
 ```
 
-## Inside The Project
+## Folder Explanations
 
-The project repository keeps:
+### System / User Level
 
-- `AGENTS.md` for Codex repo instructions
-- `CLAUDE.md` for Claude repo memory
-- `.claude/skills/` for Claude project-native reusable capabilities
-- `.claude/agents/` for Claude subagents
-- `.mcp.json` for Claude project MCP
-- `ai/` for shared context, standards, and playbooks both tools can read
-- optional `.codex/` examples for config snippets and prompt recipes
+- `~/.codex/config.toml`: User-level Codex configuration for local defaults and runtime behavior.
+- `~/.codex/skills/`: Installed Codex skills available across projects.
+- `~/.codex/plugins/`: Installed Codex plugins, including their manifest and any plugin-scoped skills.
+- `~/.agents/plugins/marketplace.json`: Marketplace registry and ordering metadata for plugins.
 
-This keeps the repo portable without pretending Codex skills and plugins are repo-installed assets.
+### Project Level
 
-## Small Template Tree
-
-```text
-templates/saas-agent-template
-├── AGENTS.md
-├── CLAUDE.md
-├── .mcp.json
-├── .codex/
-│   ├── README.md
-│   ├── agents/
-│   ├── config.toml.example
-│   ├── mcp/
-│   └── prompts/
-├── .claude/
-│   ├── agents/
-│   ├── commands/
-│   └── skills/
-├── ai/
-│   ├── README.md
-│   ├── agents/
-│   ├── commands/
-│   ├── context/
-│   ├── mcp/
-│   ├── playbooks/
-│   └── standards/
-├── apps/
-│   ├── README.md
-│   ├── api/
-│   ├── web/
-│   └── worker/
-├── packages/
-│   ├── README.md
-│   ├── config/
-│   ├── database/
-│   └── ui/
-├── infra/
-│   ├── README.md
-│   ├── docker/
-│   └── terraform/
-├── docs/
-│   ├── README.md
-│   ├── adr/
-│   ├── architecture/
-│   ├── evals/
-│   ├── product/
-│   └── runbooks/
-├── scripts/
-│   └── ai/
-├── tests/
-│   ├── README.md
-│   ├── contract/
-│   ├── e2e/
-│   └── integration/
-└── .github/
-    └── workflows/
-```
-
-## Enterprise Template Tree
-
-```text
-templates/saas-agent-template-enterprise
-├── AGENTS.md
-├── CLAUDE.md
-├── .mcp.json
-├── .codex/
-│   ├── README.md
-│   ├── agents/
-│   ├── config.toml.example
-│   ├── mcp/
-│   └── prompts/
-├── .claude/
-│   ├── agents/
-│   ├── commands/
-│   └── skills/
-├── ai/
-│   ├── README.md
-│   ├── agents/
-│   ├── commands/
-│   ├── context/
-│   ├── mcp/
-│   └── standards/
-├── apps/
-│   ├── README.md
-│   ├── admin/
-│   ├── api/
-│   ├── gateway/
-│   ├── web/
-│   └── worker/
-├── packages/
-│   ├── README.md
-│   ├── analytics/
-│   ├── auth/
-│   ├── billing/
-│   ├── config/
-│   ├── database/
-│   ├── notifications/
-│   ├── sdk/
-│   └── ui/
-├── infra/
-│   ├── README.md
-│   ├── docker/
-│   ├── kubernetes/
-│   ├── monitoring/
-│   └── terraform/
-├── docs/
-│   ├── README.md
-│   ├── adr/
-│   ├── architecture/
-│   ├── compliance/
-│   ├── incident-response/
-│   ├── product/
-│   ├── runbooks/
-│   └── security/
-├── scripts/
-│   ├── ai/
-│   ├── ci/
-│   └── ops/
-├── tests/
-│   ├── README.md
-│   ├── contract/
-│   ├── e2e/
-│   ├── integration/
-│   ├── performance/
-│   └── security/
-└── .github/
-    └── workflows/
-```
+- `AGENTS.md`: Repo-specific instructions for Codex and other coding agents.
+- `CLAUDE.md`: Repo-specific memory and operating guidance for Claude.
+- `.mcp.json`: Project MCP server configuration and connector definitions.
+- `.claude/skills/`: Claude project-local reusable skills.
+- `.claude/agents/`: Claude subagent role definitions.
+- `.claude/commands/`: Claude slash-command prompt files such as `plan`, `review`, and `ship`.
+- `.codex/config.toml.example`: Example Codex configuration to copy into user-level setup.
+- `.codex/prompts/`: Codex prompt or command examples meant to live alongside the project.
+- `.codex/mcp/`: Codex MCP examples or reference snippets for project setup.
+- `ai/context/`: Shared project context, constraints, and domain background for agents.
+- `ai/standards/`: Engineering, product, and security standards agents should follow.
+- `ai/agents/`: Shared agent definitions or role docs that are tool-agnostic.
+- `ai/commands/`: Shared command prompts and workflows for planning, review, and shipping.
+- `ai/playbooks/`: Repeatable operational playbooks for common delivery tasks.
+- `ai/mcp/`: Shared MCP catalog or integration notes for the project.
+- `apps/`: Deployable application surfaces such as web, API, and worker services.
+- `packages/`: Shared internal libraries such as UI, database, and config packages.
+- `infra/`: Infrastructure code such as Docker and Terraform definitions.
+- `docs/`: Human-facing documentation including architecture, ADRs, runbooks, product notes, and evals.
+- `scripts/ai/`: Automation scripts used by agent workflows.
+- `tests/`: Higher-level test suites such as end-to-end, integration, and contract coverage.
+- `.github/workflows/`: GitHub Actions automation and CI/CD workflows.
