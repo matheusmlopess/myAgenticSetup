@@ -77,7 +77,7 @@ check_repo_sync_status() {
     ok "Branch is up to date with $REMOTE_REF"
   elif [ "$local_head" = "$merge_base" ]; then
     warn "Branch is behind $REMOTE_REF"
-    remote_managed_changes=$(git diff --name-status "HEAD..$REMOTE_REF" -- dotfiles packages.txt .last_sync 2>/dev/null || true)
+    remote_managed_changes=$(git diff --name-status "HEAD..$REMOTE_REF" -- dotfiles packages.txt 2>/dev/null || true)
     if [ -n "$remote_managed_changes" ]; then
       echo "$remote_managed_changes" | while IFS= read -r line; do
         warn "Remote managed change: $line"
@@ -88,7 +88,7 @@ check_repo_sync_status() {
     ok "Branch is ahead of $REMOTE_REF"
   else
     warn "Branch has diverged from $REMOTE_REF"
-    remote_managed_changes=$(git diff --name-status "$merge_base..$REMOTE_REF" -- dotfiles packages.txt .last_sync 2>/dev/null || true)
+    remote_managed_changes=$(git diff --name-status "$merge_base..$REMOTE_REF" -- dotfiles packages.txt 2>/dev/null || true)
     if [ -n "$remote_managed_changes" ]; then
       echo "$remote_managed_changes" | while IFS= read -r line; do
         warn "Remote managed change: $line"
