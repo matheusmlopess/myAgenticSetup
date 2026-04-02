@@ -1,34 +1,45 @@
-# APT packages explicitly installed (auto-generated 2026-04-01)
+# APT packages explicitly installed (auto-generated 2026-04-02)
 # Do not edit manually — updated by sync.sh
 
 ## APT (manually installed)
+apt-transport-https
 base-files
 bash
 bsdutils
-build-essential
-chromium-browser
+ca-certificates
 coreutils
+curl
 dash
 debianutils
 diffutils
 findutils
 gh
+git
 grep
 gzip
 hostname
 htop
 init
 jq
+libasound2t64
+libatk-bridge2.0-0t64
+libatk1.0-0t64
 libattr1
+libcups2t64
+libnss3
+libpango-1.0-0
+libxcomposite1
+libxdamage1
+libxrandr2
+libxss1
 login
 lynx
 ncurses-base
 ncurses-bin
 network-manager
-nodejs
 npm
-python3-pip
 pipx
+python3-pip
 python3-venv
 ubuntu-minimal
 ubuntu-wsl
@@ -38,7 +49,6 @@ zsh
 
 ## npm global packages
 mermaid-cli
-codex
 
 ## pip3 global packages
 Babel==2.10.3
@@ -46,8 +56,7 @@ bcrypt==3.2.2
 blinker==1.7.0
 certifi==2023.11.17
 chardet==5.2.0
-click==8.1.6
-cloud-init==25.1.4
+cloud-init==25.2
 colorama==0.4.6
 command-not-found==0.3
 configobj==5.0.8
@@ -65,6 +74,8 @@ MarkupSafe==2.1.5
 netifaces==0.11.0
 oauthlib==3.2.2
 pip==24.0
+pipx==1.4.3
+psutil==5.9.8
 pycurl==7.45.3
 PyGObject==3.48.2
 PyHamcrest==2.1.0
