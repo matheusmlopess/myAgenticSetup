@@ -43,7 +43,7 @@ When invoked, your job is to:
 - `packages-desired.txt` — Curated list of APT packages to install on a fresh machine (edit this to add/remove packages)
 - `packages.txt` — Auto-generated live snapshot of all installed packages; written by `sync.sh`, read by `check.sh` for drift detection
 - `npm-globals.txt` — Global npm packages to install (format: `package:command`)
-- `python-globals.txt` — Global pipx tools to install (format: `package:command`)
+- `python-globals.txt` — Global pipx tools to install (format: `package` or `package:command`)
 
 ## How to Bootstrap a Fresh WSL
 
