@@ -162,7 +162,7 @@ if [ -f "$SCRIPT_DIR/npm-globals.txt" ]; then
       info "$pkg already installed"
     else
       note "Installing $pkg..."
-      run npm install -g "$pkg"
+      run sudo npm install -g "$pkg"
       info "$pkg installed"
     fi
   done < "$SCRIPT_DIR/npm-globals.txt"
