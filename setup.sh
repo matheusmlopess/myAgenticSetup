@@ -12,6 +12,7 @@
 #   7. Sets zsh as the default shell
 #   8. Prompts to authenticate GitHub CLI
 #   9. Installs Python security audit tools via pipx
+#  10. Initializes the local sync reminder timestamp
 
 set -euo pipefail
 
@@ -258,8 +259,8 @@ fi
 
 # ── 12. Initialise sync timestamp ────────────────────────────────────────────
 step "Initialising sync timestamp"
-run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync\""
-info ".last_sync created — first auto-sync will run in 15 days"
+run bash -c "date +%s > \"$SCRIPT_DIR/.last_sync.local\""
+info ".last_sync.local created — first auto-sync will run in 15 days"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""

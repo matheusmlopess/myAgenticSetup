@@ -61,13 +61,15 @@ curl -fsSL https://claude.ai/install.sh | bash
 npm install -g @openai/codex
 ```
 
-### `sync.sh` — Snapshot and push changes
+### `sync.sh` — Snapshot, branch, and open a PR
 
-Validates the repo against `origin/master`, then copies current non-sensitive dotfiles and a snapshot of installed packages into the repo, commits, and pushes. If the local branch is behind or diverged, if tracked snapshot files already have local edits, or if a secret-like value is detected in the managed files, sync stops instead of publishing.
+Validates local `master` against `origin/master`, then copies current non-sensitive dotfiles and a snapshot of installed packages into the repo. When there is a real snapshot change, `sync.sh` creates a fresh sync branch, commits there, pushes the branch, and opens a PR if `gh` is available and authenticated. If local `master` is behind or diverged, if tracked snapshot files already have local edits, if the worktree has unrelated changes, or if a secret-like value is detected in the managed files, sync stops instead of publishing.
 
 ```bash
-bash sync.sh           # sync and push
-bash sync.sh --dry-run # preview changes, no commits made
+bash sync.sh                        # sync, branch, push, and try to open a PR
+bash sync.sh --no-pr                # sync and push a branch without opening a PR
+bash sync.sh --branch-name env/wsl  # use a custom branch name
+bash sync.sh --dry-run              # preview what would happen, no changes made
 ```
 
 Two mechanisms keep sync visible even if WSL was off on the scheduled day:
@@ -77,9 +79,9 @@ Two mechanisms keep sync visible even if WSL was off on the scheduled day:
    0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
    ```
 
-2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` reads `.last_sync`, reminds you to run sync manually if 15+ days have passed, and warns when the local repo is behind `origin/master`. This catches the case where WSL was off when cron was supposed to fire and also nudges you to update before syncing.
+2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` reads `.last_sync.local` if present and falls back to the tracked `.last_sync` baseline. It reminds you to run sync manually if 15+ days have passed, and warns when the local repo is behind `origin/master`. This catches the case where WSL was off when cron was supposed to fire and also nudges you to update before syncing.
 
-`.last_sync` is a Unix timestamp file. `sync.sh` refreshes it locally after successful no-op runs, and includes it in the commit when dotfiles or package snapshots actually change. On a fresh clone, the committed value still gives a reasonable starting point for the 15-day window.
+`.last_sync.local` is machine-local and is refreshed after successful sync runs or no-op runs. The tracked `.last_sync` remains only as a fallback baseline for fresh clones. This avoids timestamp-only merge churn between environments.
 
 To install the cron job on a new machine after cloning:
 
@@ -88,6 +90,14 @@ To install the cron job on a new machine after cloning:
 ```
 
 Sync history is logged to `sync.log`.
+
+Recommended multi-environment strategy:
+
+1. Keep `master` as the reviewed integration branch.
+2. Run `sync.sh` from a clean local `master`.
+3. Let `sync.sh` create a fresh branch and PR for that environment snapshot.
+4. Review and merge manually.
+5. Keep script/template changes in separate PRs from environment snapshot PRs.
 
 ---
 
@@ -157,7 +167,7 @@ Example output:
                     +----------------------+
                     |      sync.sh         |
                     | validate, snapshot,  |
-                    | commit, push         |
+                    | branch, PR           |
                     +----------------------+
 ```
 
@@ -212,7 +222,7 @@ set default shell to zsh
 optionally run gh auth login
   |
   v
-initialize .last_sync
+initialize .last_sync.local
   |
   v
 done
@@ -306,8 +316,9 @@ validate repo state
   |
   +--> compare HEAD vs origin/master
          - if behind: abort
+         - if ahead: abort
          - if diverged: abort
-         - if up to date / ahead: continue
+         - if up to date: continue
   |
   v
 sync dotfiles
@@ -324,18 +335,20 @@ snapshot packages
   +--> if different -> overwrite packages.txt
   |
   v
-commit/push phase
+publish phase
   |
   +--> run secret scan gate
   |
   +--> if dotfiles/packages changed:
-  |      update .last_sync
-  |      git add managed snapshots + templates + .last_sync
+  |      create fresh sync branch
+  |      update .last_sync.local
+  |      git add managed snapshots
   |      git commit
-  |      git push origin master
+  |      git push origin <sync-branch>
+  |      gh pr create (when available)
   |
   +--> else:
-         update .last_sync locally only
+         update .last_sync.local only
          no commit
          no push
   |
@@ -351,7 +364,8 @@ new shell starts
   v
 run _wsl_sync_check()
   |
-  +--> read .last_sync
+  +--> read .last_sync.local
+  +--> if missing, fall back to tracked .last_sync
   +--> compute now - last_sync
   +--> if < 15 days: do nothing
   +--> if >= 15 days:
@@ -393,7 +407,7 @@ Stored in `dotfiles/` and deployed to `~/` by `setup.sh`. Any existing file is b
 | `.gitconfig.template` | GitHub CLI credential helper + placeholders |
 | `.npmrc.template`     | baseline npm config                          |
 
-`.last_sync` is a Unix timestamp file at the repo root. `sync.sh` refreshes it on successful runs to throttle auto-sync checks, but only commits it when there is a real snapshot change to publish. That avoids timestamp-only commits while still giving fresh clones a usable baseline.
+`.last_sync.local` is the machine-local Unix timestamp used by the sync reminder. The tracked `.last_sync` remains in the repo only as a fallback baseline for fresh clones. `sync.sh` refreshes `.last_sync.local` on successful runs but does not commit it, which avoids timestamp-only conflicts across environments.
 
 ---
 
