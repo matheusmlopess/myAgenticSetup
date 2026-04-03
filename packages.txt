@@ -1,4 +1,4 @@
-# APT packages explicitly installed (auto-generated 2026-04-02)
+# APT packages explicitly installed (auto-generated 2026-04-03)
 # Do not edit manually — updated by sync.sh
 
 ## APT (manually installed)
