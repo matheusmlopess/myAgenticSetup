@@ -186,51 +186,7 @@ pre-flight: remove stale Chromium PPAs if present
 install APT packages from packages.txt
   |
   v
-install Chromium (WSL-safe: PPA on focal/jammy, skip on noble+)
-  |
-  v
-install gh if missing
-  |
-  v
-install Node.js if missing
-  |
-  v
-install NVM if missing
-  |
-  v
-install Oh My Zsh if missing
-  |
-  v
-install global npm packages from npm-globals.txt
-  |
-  v
-install Claude CLI via curl
-  |
-  v
-install Codex CLI via npm
-  |
-  v
-install Python tools from python-globals.txt
-  |
-  v
-copy tracked dotfiles/templates -> ~/
-  |
-  v
-backup existing home dotfiles before overwrite
-  |
-  v
-restore or prompt for git identity
-  |
-  v
-set default shell to zsh
-  |
-  v
-optionally run gh auth login
-  |
-  v
-initialize .last_sync.local
-  |
-  v
+...
 done
 ```
 
