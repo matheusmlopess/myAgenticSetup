@@ -81,6 +81,8 @@ plugins=(
 )
 zstyle ':omz:alpha:lib:git' async-prompt no
 
+ZSH_COMPDUMP="$HOME/.config/zsh/zcompdump"
+mkdir -p "$HOME/.config/zsh"
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
