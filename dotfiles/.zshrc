@@ -112,6 +112,7 @@ source $ZSH/oh-my-zsh.sh
  alias zconfig="vi ~/.zshrc"
  alias ohmyzsh="vi ~/.oh-my-zsh"
  alias ll="ls -lsah"
+ alias obsidian="cd /mnt/d/OneDrive/Obsidian"
 
  #git
 plugins=(git git-prompt)
