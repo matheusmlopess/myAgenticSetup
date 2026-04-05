@@ -124,9 +124,10 @@ step "Restoring dotfiles"
 restore_dotfile() {
   local file="$1"
   local dst="$HOME/$file"
+  local bak_dir="$HOME/.config/dotfile-backups"
   local latest_bak
 
-  latest_bak=$(ls -t "${dst}.bak."* 2>/dev/null | head -1 || true)
+  latest_bak=$(ls -t "$bak_dir/${file}.bak."* 2>/dev/null | head -1 || true)
 
   if [ -n "$latest_bak" ]; then
     note "Restoring $file from $latest_bak..."

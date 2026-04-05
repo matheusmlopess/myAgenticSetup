@@ -209,6 +209,9 @@ fi
 # ── 10. Dotfiles ───────────────────────────────────────────────────────────────
 step "Copying dotfiles"
 
+DOTFILE_BAK_DIR="$HOME/.config/dotfile-backups"
+mkdir -p "$DOTFILE_BAK_DIR"
+
 copy_dotfile() {
   local src_name="$1"
   local dst_name="${2:-$1}"
@@ -220,9 +223,9 @@ copy_dotfile() {
   fi
   if [ -f "$dst" ]; then
     # Remove old backups before creating a new one — keep only the latest
-    rm -f "${dst}".bak.* 2>/dev/null || true
-    run cp "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
-    note "Backed up existing $dst_name → ${dst_name}.bak.*"
+    rm -f "$DOTFILE_BAK_DIR/${dst_name}".bak.* 2>/dev/null || true
+    run cp "$dst" "$DOTFILE_BAK_DIR/${dst_name}.bak.$(date +%Y%m%d%H%M%S)"
+    note "Backed up existing $dst_name → ~/.config/dotfile-backups/${dst_name}.bak.*"
   fi
   run cp "$src" "$dst"
   info "Copied $src_name → ~/$dst_name"
