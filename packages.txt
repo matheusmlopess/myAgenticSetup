@@ -1,4 +1,4 @@
-# APT packages explicitly installed (auto-generated 2026-04-03)
+# APT packages explicitly installed (auto-generated 2026-04-05)
 # Do not edit manually — updated by sync.sh
 
 ## APT (manually installed)
@@ -29,9 +29,11 @@ lynx
 ncurses-base
 ncurses-bin
 nodejs
+openssh-server
 pipx
 python3-pip
 python3-venv
+ripgrep
 ubuntu-minimal
 ubuntu-wsl
 unzip
@@ -82,6 +84,7 @@ requests==2.31.0
 rich==13.7.1
 service-identity==24.1.0
 setuptools==68.1.2
+ssh-import-id==5.11
 systemd-python==235
 Twisted==24.3.0
 typing_extensions==4.10.0
