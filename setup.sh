@@ -219,6 +219,8 @@ copy_dotfile() {
     return
   fi
   if [ -f "$dst" ]; then
+    # Remove old backups before creating a new one — keep only the latest
+    rm -f "${dst}".bak.* 2>/dev/null || true
     run cp "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
     note "Backed up existing $dst_name → ${dst_name}.bak.*"
   fi
