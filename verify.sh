@@ -12,6 +12,8 @@ bash -n check.sh
 bash -n sync.sh
 bash -n tests/lib.sh
 bash -n tests/run.sh
+zsh -n dotfiles/.zshrc
+bash -n dotfiles/.bashrc
 
 step "Running scenario tests"
 bash tests/run.sh

@@ -11,6 +11,7 @@ scenario_sync_no_changes() {
   [[ "$CMD_STATUS" -eq 0 ]] || fail "sync.sh should succeed"
   assert_contains "$CMD_OUTPUT" "packages.txt baseline already covers local package state"
   assert_contains "$CMD_OUTPUT" "Nothing to commit — repo is up to date"
+  assert_file_contains "$FIXTURE_HOME/.config/wsl-setup/config.sh" "$FIXTURE_REPO/sync.sh"
   [[ "$(git -C "$FIXTURE_REPO" branch --show-current)" == "master" ]] || fail "expected to remain on master"
 }
 

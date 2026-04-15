@@ -9,8 +9,8 @@ Also includes a **Claude Code agent** (`CLAUDE.md`) that guides the setup intera
 ## Quick Start
 
 ```bash
-git clone https://github.com/matheusmlopess/myAgenticSetup ~/repo/wsl_setup
-cd ~/repo/wsl_setup
+git clone https://github.com/matheusmlopess/myAgenticSetup
+cd myAgenticSetup
 bash setup.sh
 ```
 
@@ -39,7 +39,8 @@ exec zsh
 - **Git identity** — restored from existing global config or prompted during setup
 - **GitHub CLI** — credential helper wired up (prompts for `gh auth login`)
 - **Default shell** — set to zsh via `chsh`
-- **Startup reminders** — zsh warns when sync is due or the repo is behind `origin/master`
+- **Runtime helpers** — `~/.config/wsl-setup/config.sh` plus `wsl-sync`, `wsl-check`, and `wsl-verify`
+- **Startup reminders** — zsh warns when sync is due without assuming a fixed clone path
 
 ---
 
@@ -82,17 +83,17 @@ Two mechanisms keep sync visible even if WSL was off on the scheduled day:
 
 1. **Cron job** — fires every 15 days at 9am if WSL is on:
    ```
-   0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1
+   0 9 */15 * * $HOME/.local/bin/wsl-sync >> $HOME/.config/wsl-setup/cron.log 2>&1
    ```
 
-2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` reads `.last_sync.local` if present and falls back to the tracked `.last_sync` baseline. It reminds you to run sync manually if 15+ days have passed, and warns when the local repo is behind `origin/master`. This catches the case where WSL was off when cron was supposed to fire and also nudges you to update before syncing.
+2. **Terminal startup reminder** — every time you open a terminal, `.zshrc` loads `~/.config/wsl-setup/config.sh`, reads `.last_sync.local` if present, and falls back to the tracked `.last_sync` baseline. It reminds you to run sync manually if 15+ days have passed. This catches the case where WSL was off when cron was supposed to fire.
 
 `.last_sync.local` is machine-local and is refreshed after successful sync runs or no-op runs. The tracked `.last_sync` remains only as a fallback baseline for fresh clones. This avoids timestamp-only merge churn between environments.
 
 To install the cron job on a new machine after cloning:
 
 ```bash
-(crontab -l 2>/dev/null; echo "0 9 */15 * * /bin/bash ~/repo/wsl_setup/sync.sh >> ~/repo/wsl_setup/sync.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo '0 9 */15 * * $HOME/.local/bin/wsl-sync >> $HOME/.config/wsl-setup/cron.log 2>&1') | crontab -
 ```
 
 Sync history is logged to `sync.log`.
@@ -230,7 +231,7 @@ Current tools:
 
 ### Sync reminder in `.zshrc`
 
-Runs on shell startup, checks `.last_sync.local` with fallback to tracked `.last_sync`, and warns when sync is due or the repo is behind `origin/master`.
+Runs on shell startup, loads `~/.config/wsl-setup/config.sh`, checks `.last_sync.local` with fallback to tracked `.last_sync`, and warns when sync is due.
 
 ---
 
@@ -239,7 +240,7 @@ Runs on shell startup, checks `.last_sync.local` with fallback to tracked `.last
 If you have [Claude Code](https://github.com/anthropics/claude-code) installed, you can use it to guide the setup interactively instead of running scripts manually.
 
 ```bash
-cd ~/repo/wsl_setup
+cd myAgenticSetup
 claude
 ```
 
@@ -258,7 +259,7 @@ Stored in `dotfiles/` and deployed to `~/` by `setup.sh`. Any existing file is b
 | `.gitconfig.template` | GitHub CLI credential helper + placeholders |
 | `.npmrc.template`     | baseline npm config                          |
 
-`.last_sync.local` is the machine-local Unix timestamp used by the sync reminder. The tracked `.last_sync` remains in the repo only as a fallback baseline for fresh clones. `sync.sh` refreshes `.last_sync.local` on successful runs but does not commit it, which avoids timestamp-only conflicts across environments.
+`.last_sync.local` is the machine-local Unix timestamp used by the sync reminder. The tracked `.last_sync` remains in the repo only as a fallback baseline for fresh clones. `sync.sh` refreshes `.last_sync.local` on successful runs but does not commit it, which avoids timestamp-only conflicts across environments. `~/.config/wsl-setup/config.sh` records the current repo location so the reminder and helper commands stay valid even when the repo is not cloned under `~/repo/wsl_setup`.
 
 ---
 
