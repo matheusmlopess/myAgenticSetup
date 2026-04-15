@@ -1,22 +1,22 @@
-# APT packages explicitly installed (auto-generated 2026-04-05)
+# APT packages explicitly installed (auto-generated 2026-04-15)
 # Do not edit manually — updated by sync.sh
 
 ## APT (manually installed)
-apt-transport-https
+ansible
 base-files
 bash
 bsdutils
+bubblewrap
 build-essential
-ca-certificates
+chromium-browser
 coreutils
-curl
 dash
 debianutils
 diffutils
+docker-compose-v2
+docker.io
 findutils
 gh
-gnupg
-google-chrome-stable
 grep
 gzip
 hostname
@@ -28,8 +28,9 @@ login
 lynx
 ncurses-base
 ncurses-bin
+network-manager
 nodejs
-openssh-server
+npm
 pipx
 python3-pip
 python3-venv
@@ -43,10 +44,10 @@ zsh
 ## npm global packages
 mermaid-cli
 codex
-corepack
-npm
 
 ## pip3 global packages
+ansible==9.2.0
+apache-libcloud==3.4.1
 Babel==2.10.3
 bcrypt==3.2.2
 blinker==1.7.0
@@ -59,15 +60,21 @@ configobj==5.0.8
 dbus-python==1.3.2
 distro==1.9.0
 distro-info==1.7+build1
+dnspython==2.6.1
+gyp==0.1
 idna==3.6
-Jinja2==3.1.2
+jmespath==1.0.1
 jsonpatch==1.32
 jsonpointer==2.0
 jsonschema==4.10.3
 launchpadlib==1.11.0
+lockfile==0.12.2
 MarkupSafe==2.1.5
+netaddr==0.8.0
 netifaces==0.11.0
+ntlm-auth==1.5.0
 oauthlib==3.2.2
+passlib==1.7.4
 pip==24.0
 pipx==1.4.3
 psutil==5.9.8
@@ -75,16 +82,19 @@ pycurl==7.45.3
 PyGObject==3.48.2
 PyHamcrest==2.1.0
 PyJWT==2.7.0
+pykerberos==1.1.14
 pyOpenSSL==23.2.0
 pyserial==3.5
 python-apt==2.7.7+ubuntu5.1
 pytz==2024.1
-PyYAML==6.0.1
+pywinrm==0.4.3
 requests==2.31.0
+requests-ntlm==1.1.0
 rich==13.7.1
+selinux==3.5
 service-identity==24.1.0
 setuptools==68.1.2
-ssh-import-id==5.11
+simplejson==3.19.2
 systemd-python==235
 Twisted==24.3.0
 typing_extensions==4.10.0
@@ -93,3 +103,4 @@ unattended-upgrades==0.1
 urllib3==2.0.7
 wadllib==1.3.6
 wheel==0.42.0
+xmltodict==0.13.0
