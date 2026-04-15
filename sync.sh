@@ -37,6 +37,10 @@ LOCAL_LAST_SYNC_FILE="$SCRIPT_DIR/.last_sync.local"
 REMOTE_NAME="${SYNC_REMOTE_NAME:-origin}"
 BASE_BRANCH="${SYNC_BASE_BRANCH:-master}"
 REMOTE_REF="$REMOTE_NAME/$BASE_BRANCH"
+DOTFILES=(
+  ".zshrc"
+  ".bashrc"
+)
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -111,6 +115,146 @@ print_managed_diff() {
   fi
 }
 
+section_entries() {
+  local source_file="$1"
+  local section_header="$2"
+
+  awk -v target="$section_header" '
+    $0 == target { in_section=1; next }
+    /^## / && in_section { exit }
+    in_section && NF { print }
+  ' "$source_file"
+}
+
+normalize_pip_key() {
+  printf '%s\n' "${1%%==*}" | tr '[:upper:]' '[:lower:]'
+}
+
+render_merged_packages() {
+  local tracked_file="$1"
+  local local_snapshot_file="$2"
+  local header_line_1 header_line_2
+  local line key
+  local -A apt_map=()
+  local -A npm_map=()
+  local -A pip_map=()
+
+  header_line_1=$(sed -n '1p' "$tracked_file" 2>/dev/null || true)
+  header_line_2=$(sed -n '2p' "$tracked_file" 2>/dev/null || true)
+
+  if [[ -z "$header_line_1" ]]; then
+    header_line_1="# APT packages explicitly installed (auto-generated $(date '+%Y-%m-%d'))"
+  fi
+  if [[ -z "$header_line_2" ]]; then
+    header_line_2="# Do not edit manually — updated by sync.sh"
+  fi
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    apt_map["$line"]="$line"
+  done < <(section_entries "$tracked_file" "## APT (manually installed)")
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    apt_map["$line"]="$line"
+  done < <(section_entries "$local_snapshot_file" "## APT (manually installed)")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    npm_map["$line"]="$line"
+  done < <(section_entries "$tracked_file" "## npm global packages")
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    npm_map["$line"]="$line"
+  done < <(section_entries "$local_snapshot_file" "## npm global packages")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key=$(normalize_pip_key "$line")
+    [[ -n "$key" ]] && pip_map["$key"]="$line"
+  done < <(section_entries "$tracked_file" "## pip3 global packages")
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key=$(normalize_pip_key "$line")
+    if [[ -n "$key" && -z "${pip_map[$key]:-}" ]]; then
+      pip_map["$key"]="$line"
+    fi
+  done < <(section_entries "$local_snapshot_file" "## pip3 global packages")
+
+  printf '%s\n' "$header_line_1"
+  printf '%s\n' "$header_line_2"
+  printf '\n'
+  printf '## APT (manually installed)\n'
+  printf '%s\n' "${!apt_map[@]}" | sort
+  printf '\n'
+  printf '## npm global packages\n'
+  printf '%s\n' "${!npm_map[@]}" | sort
+  printf '\n'
+  printf '## pip3 global packages\n'
+  for key in $(printf '%s\n' "${!pip_map[@]}" | sort); do
+    printf '%s\n' "${pip_map[$key]}"
+  done
+}
+
+local_package_additions_missing() {
+  local tracked_file="$1"
+  local local_snapshot_file="$2"
+  local line key
+  local -A tracked_apt=()
+  local -A tracked_npm=()
+  local -A tracked_pip=()
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && tracked_apt["$line"]=1
+  done < <(section_entries "$tracked_file" "## APT (manually installed)")
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && tracked_npm["$line"]=1
+  done < <(section_entries "$tracked_file" "## npm global packages")
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key=$(normalize_pip_key "$line")
+    [[ -n "$key" ]] && tracked_pip["$key"]=1
+  done < <(section_entries "$tracked_file" "## pip3 global packages")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if [[ -z "${tracked_apt[$line]:-}" ]]; then
+      return 0
+    fi
+  done < <(section_entries "$local_snapshot_file" "## APT (manually installed)")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if [[ -z "${tracked_npm[$line]:-}" ]]; then
+      return 0
+    fi
+  done < <(section_entries "$local_snapshot_file" "## npm global packages")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key=$(normalize_pip_key "$line")
+    if [[ -n "$key" && -z "${tracked_pip[$key]:-}" ]]; then
+      return 0
+    fi
+  done < <(section_entries "$local_snapshot_file" "## pip3 global packages")
+
+  return 1
+}
+
+print_remote_status() {
+  local range="$1"
+  local file
+
+  for file in "${DOTFILES[@]}"; do
+    if ! git diff --quiet "$range" -- "dotfiles/$file" 2>/dev/null; then
+      note "$file remote ahead of local $BASE_BRANCH"
+    fi
+  done
+
+  if ! git diff --quiet "$range" -- packages.txt 2>/dev/null; then
+    note "packages.txt baseline remote ahead of local $BASE_BRANCH"
+  fi
+}
+
 ensure_clean_managed_files() {
   local dirty
 
@@ -157,6 +301,7 @@ validate_branch_state() {
 
   if [ "$local_head" = "$merge_base" ] && [ "$local_head" != "$remote_head" ]; then
     print_managed_diff "HEAD..$REMOTE_REF"
+    print_remote_status "HEAD..$REMOTE_REF"
     note "Local $BASE_BRANCH is behind $REMOTE_REF — pulling automatically"
     if ! $DRY_RUN; then
       git pull --ff-only "$REMOTE_NAME" "$BASE_BRANCH" || abort_sync "Auto-pull failed. Resolve manually before syncing."
@@ -177,7 +322,26 @@ validate_branch_state() {
   fi
 
   print_managed_diff "$merge_base..$REMOTE_REF"
+  print_remote_status "$merge_base..$REMOTE_REF"
   abort_sync "Local $BASE_BRANCH has diverged from $REMOTE_REF. Reconcile the branch before syncing."
+}
+
+generate_packages() {
+  echo "# APT packages explicitly installed (auto-generated $(date '+%Y-%m-%d'))"
+  echo "# Do not edit manually — updated by sync.sh"
+  echo ""
+  echo "## APT (manually installed)"
+  apt-mark showmanual 2>/dev/null | sort
+  echo ""
+  if command -v npm &>/dev/null; then
+    echo "## npm global packages"
+    npm list -g --depth=0 --parseable 2>/dev/null | tail -n +2 | xargs -I{} basename {} || true
+  fi
+  echo ""
+  if command -v pip3 &>/dev/null; then
+    echo "## pip3 global packages"
+    pip3 list --not-required --format=freeze 2>/dev/null | grep -v "^#" || true
+  fi
 }
 
 make_sync_branch_name() {
@@ -238,7 +402,7 @@ open_pull_request() {
 ## Summary
 
 - sync dotfiles snapshot
-- sync package snapshot
+- merge missing local packages into tracked baseline
 
 ## Notes
 
@@ -279,11 +443,6 @@ fi
 # ── 2. Copy current dotfiles into the repo ────────────────────────────────────
 step "Syncing dotfiles"
 
-DOTFILES=(
-  ".zshrc"
-  ".bashrc"
-)
-
 CHANGED=false
 
 for f in "${DOTFILES[@]}"; do
@@ -296,50 +455,48 @@ for f in "${DOTFILES[@]}"; do
   fi
 
   if [ ! -f "$dst" ] || ! diff -q "$src" "$dst" &>/dev/null; then
-    note "$f changed — updating"
+    note "$f local ahead of tracked snapshot — updating"
     run cp "$src" "$dst"
     CHANGED=true
   else
-    info "$f unchanged"
+    info "$f up to date"
   fi
 done
 
-# ── 3. Snapshot installed packages ───────────────────────────────────────────
-step "Snapshotting installed packages"
+# ── 3. Read installed packages against tracked baseline ──────────────────────
+step "Reading package snapshot"
 
 PKG_SNAPSHOT="$SCRIPT_DIR/packages.txt"
+LOCAL_PKG_SNAPSHOT="$(mktemp)"
+MERGED_PKG_SNAPSHOT="$(mktemp)"
 
-generate_packages() {
-  echo "# APT packages explicitly installed (auto-generated $(date '+%Y-%m-%d'))"
-  echo "# Do not edit manually — updated by sync.sh"
-  echo ""
-  echo "## APT (manually installed)"
-  apt-mark showmanual 2>/dev/null | sort
-  echo ""
-  if command -v npm &>/dev/null; then
-    echo "## npm global packages"
-    npm list -g --depth=0 --parseable 2>/dev/null | tail -n +2 | xargs -I{} basename {} || true
-  fi
-  echo ""
-  if command -v pip3 &>/dev/null; then
-    echo "## pip3 global packages"
-    pip3 list --not-required --format=freeze 2>/dev/null | grep -v "^#" || true
-  fi
+cleanup_temp_files() {
+  rm -f "$LOCAL_PKG_SNAPSHOT" "$MERGED_PKG_SNAPSHOT"
 }
+trap cleanup_temp_files EXIT
 
-NEW_PACKAGES=$(generate_packages)
-OLD_PACKAGES=$(cat "$PKG_SNAPSHOT" 2>/dev/null || echo "")
+generate_packages > "$LOCAL_PKG_SNAPSHOT"
+render_merged_packages "$PKG_SNAPSHOT" "$LOCAL_PKG_SNAPSHOT" > "$MERGED_PKG_SNAPSHOT"
 
-if [ "$NEW_PACKAGES" != "$OLD_PACKAGES" ]; then
-  note "packages.txt changed — updating"
+PACKAGE_CHANGED=false
+if ! diff -q "$MERGED_PKG_SNAPSHOT" "$PKG_SNAPSHOT" &>/dev/null; then
+  note "Local package state has additions missing from tracked packages.txt baseline"
+  PACKAGE_CHANGED=true
   if ! $DRY_RUN; then
-    echo "$NEW_PACKAGES" > "$PKG_SNAPSHOT"
+    cp "$MERGED_PKG_SNAPSHOT" "$PKG_SNAPSHOT"
   else
-    echo "  [dry-run] would write new packages.txt"
+    echo "  [dry-run] would merge missing local packages into packages.txt"
   fi
-  CHANGED=true
 else
-  info "packages.txt unchanged"
+  if local_package_additions_missing "$PKG_SNAPSHOT" "$LOCAL_PKG_SNAPSHOT"; then
+    note "Local package state has additions missing from tracked packages.txt baseline"
+  else
+    info "packages.txt baseline already covers local package state"
+  fi
+fi
+
+if [ "$PACKAGE_CHANGED" = true ]; then
+  CHANGED=true
 fi
 
 # ── 4. Commit and push if anything changed ────────────────────────────────────
@@ -354,9 +511,7 @@ if ! $DRY_RUN; then
   if [ "$CHANGED" = true ]; then
     create_sync_branch "$SYNC_BRANCH"
     refresh_last_sync "$SYNC_TS"
-    git add dotfiles/.zshrc dotfiles/.bashrc dotfiles/.gitconfig.template dotfiles/.npmrc.template packages.txt 2>/dev/null || true
-  else
-    git add dotfiles/.zshrc dotfiles/.bashrc dotfiles/.gitconfig.template dotfiles/.npmrc.template packages.txt 2>/dev/null || true
+    git add dotfiles/.zshrc dotfiles/.bashrc packages.txt 2>/dev/null || true
   fi
 
   if ! git diff --cached --quiet; then

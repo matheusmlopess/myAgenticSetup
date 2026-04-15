@@ -63,13 +63,19 @@ npm install -g @openai/codex
 
 ### `sync.sh` — Snapshot, branch, and open a PR
 
-Validates local `master` against `origin/master`, then copies current non-sensitive dotfiles and a snapshot of installed packages into the repo. When there is a real snapshot change, `sync.sh` creates a fresh sync branch, commits there, pushes the branch, and opens a PR if `gh` is available and authenticated. If local `master` is behind or diverged, if tracked snapshot files already have local edits, if the worktree has unrelated changes, or if a secret-like value is detected in the managed files, sync stops instead of publishing.
+Validates local `master` against `origin/master`, then copies current non-sensitive dotfiles into the repo when the local workstation is ahead of the tracked snapshot. It also reads the current installed package state and merges any missing local packages into `packages.txt` using an add-only union policy. Existing tracked package entries stay in place, and for pip packages the tracked version wins when the package name already exists. When there is a real dotfile or package-baseline change, `sync.sh` creates a fresh sync branch, commits there, pushes the branch, and opens a PR if `gh` is available and authenticated. If local `master` is behind or diverged, if tracked snapshot files already have local edits, if the worktree has unrelated changes, or if a secret-like value is detected in the managed files, sync stops instead of publishing.
 
 ```bash
 bash sync.sh                        # sync, branch, push, and try to open a PR
 bash sync.sh --no-pr                # sync and push a branch without opening a PR
 bash sync.sh --branch-name env/wsl  # use a custom branch name
 bash sync.sh --dry-run              # preview what would happen, no changes made
+```
+
+Before pushing changes to this repo, run:
+
+```bash
+bash verify.sh
 ```
 
 Two mechanisms keep sync visible even if WSL was off on the scheduled day:
@@ -91,19 +97,22 @@ To install the cron job on a new machine after cloning:
 
 Sync history is logged to `sync.log`.
 
+`verify.sh` is the local pre-push gate. It runs shell parsing checks for the main scripts and then executes the full temp-fixture scenario suite in `tests/run.sh`.
+
 Recommended multi-environment strategy:
 
 1. Keep `master` as the reviewed integration branch.
 2. Run `sync.sh` from a clean local `master`.
-3. Let `sync.sh` create a fresh branch and PR for that environment snapshot.
-4. Review and merge manually.
-5. Keep script/template changes in separate PRs from environment snapshot PRs.
+3. Let `sync.sh` create a fresh branch and PR for local dotfile snapshot changes and missing package additions.
+4. Treat `packages.txt` as a monotonic shared baseline: sync adds missing local packages but does not remove tracked ones.
+5. Review and merge manually.
+6. Keep script/template changes in separate PRs from environment snapshot PRs.
 
 ---
 
 ### `check.sh` — Audit current state
 
-Run this anytime to see what's installed, missing, or misconfigured. It also checks repo sync status against `origin/master`, warns about local snapshot drift for dotfiles, and flags when the current package snapshot differs from `packages.txt`.
+Run this anytime to see what's installed, missing, or misconfigured. It also checks repo sync status against `origin/master`, warns when local dotfiles are ahead of the tracked snapshot, and flags when the local machine has package additions missing from the tracked `packages.txt` baseline.
 
 ```bash
 bash check.sh
@@ -128,130 +137,50 @@ Example output:
 
 ## Workflow
 
-### Overall lifecycle
+### Daily Flow
 
 ```text
-                    +----------------------+
-                    |   Fresh clone / use  |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |      setup.sh        |
-                    | install + configure  |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |      check.sh        |
-                    | audit current state  |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |     normal usage     |
-                    | open terminal / work |
-                    +----------+-----------+
-                               |
-                  +------------+-------------+
-                  |                          |
-                  v                          v
-        +-------------------+      +-------------------+
-        | sync reminder in  |      | manual sync via   |
-        | dotfiles/.zshrc   |      | sync.sh           |
-        +---------+---------+      +---------+---------+
-                  |                          |
-                  +------------+-------------+
-                               |
-                               v
-                    +----------------------+
-                    |      sync.sh         |
-                    | validate, snapshot,  |
-                    | branch, PR           |
-                    +----------------------+
+┌──────────────┐
+│ fresh clone  │
+└──────┬───────┘
+       │
+       v
+┌──────────────┐
+│  setup.sh    │  install + configure
+└──────┬───────┘
+       │
+       v
+┌──────────────┐
+│  check.sh    │  audit local state
+└──────┬───────┘
+       │
+       v
+┌──────────────┐
+│ normal usage │
+└───┬─────┬────┘
+    │     │
+    │     └───────────────┐
+    v                     v
+┌──────────────┐   ┌──────────────┐
+│ zsh reminder │   │   sync.sh    │
+│ due / behind │   │ sync + PR    │
+└──────┬───────┘   └──────┬───────┘
+       │                  │
+       └────────┬─────────┘
+                v
+          ┌──────────────┐
+          │  verify.sh   │
+          │ before push  │
+          └──────────────┘
 ```
 
 ### `setup.sh`
 
-```text
-start
-  |
-  v
-resolve SCRIPT_DIR
-  |
-  v
-pre-flight: remove stale Chromium PPAs if present
-  |
-  v
-install APT packages from packages.txt
-  |
-  v
-...
-done
-```
+Installs APT packages from `packages-desired.txt`, sets up shell/tooling, copies dotfiles, and initializes local sync state.
 
 ### `check.sh`
 
-```text
-start
-  |
-  v
-resolve SCRIPT_DIR
-  |
-  v
-repo sync checks
-  |
-  +--> git fetch origin master
-  |
-  +--> check if managed repo files have local edits
-  |
-  +--> compare HEAD vs origin/master
-  |      - up to date
-  |      - behind
-  |      - ahead
-  |      - diverged
-  |
-  v
-check installed APT packages against packages.txt
-  |      (chromium-browser skipped on Ubuntu 24.04+)
-  |
-  v
-check NVM exists
-  |
-  v
-check Oh My Zsh exists
-  |
-  v
-check home dotfiles exist
-  |
-  v
-check snapshot drift
-  |
-  +--> compare ~/.zshrc vs dotfiles/.zshrc
-  +--> compare ~/.bashrc vs dotfiles/.bashrc
-  +--> compare generated package snapshot vs packages.txt
-  |
-  v
-check git user.name / user.email
-  |
-  v
-check gh auth
-  |
-  v
-check default shell
-  |
-  v
-check npm globals from npm-globals.txt
-  |
-  v
-check Claude CLI and Codex CLI
-  |
-  v
-check Python tools from python-globals.txt
-  |
-  v
-print summary
-```
+Audits repo sync status, package/tool installation, local dotfile drift, and package additions missing from `packages.txt`.
 
 ### `python-globals.txt` — Security audit toolchain
 
@@ -265,86 +194,43 @@ Current tools:
 ### `sync.sh`
 
 ```text
-start
-  |
-  v
-resolve SCRIPT_DIR
-  |
-  v
-validate repo state
-  |
-  +--> ensure dotfiles/ and packages.txt have no local uncommitted edits
-  |
-  +--> git fetch origin master
-  |
-  +--> ensure worktree is on master branch with no unrelated edits
-  |
-  +--> compare HEAD vs origin/master
-         - if behind: git pull --ff-only, then continue
-         - if ahead: abort
-         - if diverged: abort
-         - if up to date: continue
-  |
-  v
-sync dotfiles
-  |
-  +--> for each managed non-sensitive dotfile:
-  |      compare ~/file vs repo dotfiles/file
-  |      if different -> copy home file into repo snapshot
-  |
-  v
-snapshot packages
-  |
-  +--> generate current installed package list
-  +--> compare with packages.txt
-  +--> if different -> overwrite packages.txt
-  |
-  v
-publish phase
-  |
-  +--> run secret scan gate
-  |
-  +--> if dotfiles/packages changed:
-  |      create fresh sync branch
-  |      update .last_sync.local
-  |      git add managed snapshots
-  |      git commit
-  |      git push origin <sync-branch>
-  |      gh pr create (when available)
-  |
-  +--> else:
-         update .last_sync.local only
-         no commit
-         no push
-  |
-  v
-done
+┌──────────────────────────────┐
+│ validate repo + branch state │
+└──────────────┬───────────────┘
+               │
+               v
+┌──────────────────────────────┐
+│ sync ~/.zshrc and ~/.bashrc  │
+│ into repo dotfile snapshots  │
+└──────────────┬───────────────┘
+               │
+               v
+┌──────────────────────────────┐
+│ read local package state     │
+│ merge missing entries into   │
+│ packages.txt                 │
+│ keep tracked entries sticky  │
+│ keep tracked pip versions    │
+└──────────────┬───────────────┘
+               │
+               v
+        ┌───────────────┐
+        │ changes found?│
+        └──────┬────────┘
+               │
+      ┌────────┴────────┐
+      │                 │
+      v                 v
+┌──────────────┐  ┌──────────────┐
+│ create sync  │  │ refresh      │
+│ branch + PR  │  │ .last_sync   │
+│ stage files  │  │ no commit    │
+└──────────────┘  └──────────────┘
 ```
 
 ### Sync reminder in `.zshrc`
 
-```text
-new shell starts
-  |
-  v
-run _wsl_sync_check()
-  |
-  +--> read .last_sync.local
-  +--> if missing, fall back to tracked .last_sync
-  +--> compute now - last_sync
-  +--> if < 15 days: do nothing
-  +--> if >= 15 days:
-          print reminder to run sync.sh manually
-  |
-  +--> fetch origin/master
-  +--> if local repo is behind:
-          print update suggestion
-  +--> if local repo diverged:
-          print review warning
-  |
-  v
-continue normal shell startup
-```
+Runs on shell startup, checks `.last_sync.local` with fallback to tracked `.last_sync`, and warns when sync is due or the repo is behind `origin/master`.
 
 ---
 

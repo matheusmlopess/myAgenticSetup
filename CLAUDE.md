@@ -35,13 +35,14 @@ When invoked, your job is to:
 
 - `setup.sh` — Full bootstrap (apt packages, NVM, Oh My Zsh, Claude CLI, Codex CLI, dotfiles, chsh)
 - `check.sh` — Audits current state, reports issues, and warns when the repo is behind/diverged from `origin/master`
-- `sync.sh` — Snapshots current dotfiles + packages into a PR branch every 15 days
+- `sync.sh` — Snapshots current dotfiles into a PR branch every 15 days and additively merges missing local packages into `packages.txt`
+- `verify.sh` — Runs parser checks plus the full temp-fixture sync/check scenario suite before push
 - `teardown.sh` — Light rollback: removes npm/pipx globals, NVM, Oh My Zsh, restores dotfile backups, reverts shell
 
 ## Package Files
 
 - `packages-desired.txt` — Curated list of APT packages to install on a fresh machine (edit this to add/remove packages)
-- `packages.txt` — Auto-generated live snapshot of all installed packages; written by `sync.sh`, read by `check.sh` for drift detection
+- `packages.txt` — Tracked additive package baseline; `sync.sh` adds missing local packages and preserves tracked entries already in the file
 - `npm-globals.txt` — Global npm packages to install (format: `package:command`)
 - `python-globals.txt` — Global pipx tools to install (format: `package` or `package:command`)
 

@@ -42,8 +42,8 @@ util-linux
 zsh
 
 ## npm global packages
-mermaid-cli
 codex
+mermaid-cli
 
 ## pip3 global packages
 ansible==9.2.0
