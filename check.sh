@@ -17,6 +17,7 @@ warn() { echo -e "  ${YELLOW}[WARN]${NC}  $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ISSUES=0
 REMOTE_REF="origin/master"
+REMOTE_PACKAGES_AHEAD=false
 
 generate_packages() {
   echo "# APT packages explicitly installed (auto-generated $(date '+%Y-%m-%d'))"
@@ -34,6 +35,66 @@ generate_packages() {
     echo "## pip3 global packages"
     pip3 list --not-required --format=freeze 2>/dev/null | grep -v "^#" || true
   fi
+}
+
+section_entries() {
+  local source_file="$1"
+  local section_header="$2"
+
+  awk -v target="$section_header" '
+    $0 == target { in_section=1; next }
+    /^## / && in_section { exit }
+    in_section && NF { print }
+  ' "$source_file"
+}
+
+normalize_pip_key() {
+  printf '%s\n' "${1%%==*}" | tr '[:upper:]' '[:lower:]'
+}
+
+local_package_additions_missing() {
+  local tracked_file="$1"
+  local local_snapshot_file="$2"
+  local line key
+  local -A tracked_apt=()
+  local -A tracked_npm=()
+  local -A tracked_pip=()
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && tracked_apt["$line"]=1
+  done < <(section_entries "$tracked_file" "## APT (manually installed)")
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && tracked_npm["$line"]=1
+  done < <(section_entries "$tracked_file" "## npm global packages")
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key=$(normalize_pip_key "$line")
+    [[ -n "$key" ]] && tracked_pip["$key"]=1
+  done < <(section_entries "$tracked_file" "## pip3 global packages")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if [[ -z "${tracked_apt[$line]:-}" ]]; then
+      return 0
+    fi
+  done < <(section_entries "$local_snapshot_file" "## APT (manually installed)")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if [[ -z "${tracked_npm[$line]:-}" ]]; then
+      return 0
+    fi
+  done < <(section_entries "$local_snapshot_file" "## npm global packages")
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key=$(normalize_pip_key "$line")
+    if [[ -n "$key" && -z "${tracked_pip[$key]:-}" ]]; then
+      return 0
+    fi
+  done < <(section_entries "$local_snapshot_file" "## pip3 global packages")
+
+  return 1
 }
 
 check_repo_sync_status() {
@@ -83,6 +144,10 @@ check_repo_sync_status() {
         warn "Remote managed change: $line"
       done
     fi
+    if ! git diff --quiet "HEAD..$REMOTE_REF" -- packages.txt 2>/dev/null; then
+      warn "packages.txt remote baseline changed"
+      REMOTE_PACKAGES_AHEAD=true
+    fi
     ISSUES=$((ISSUES+1))
   elif [ "$remote_head" = "$merge_base" ]; then
     ok "Branch is ahead of $REMOTE_REF"
@@ -93,6 +158,10 @@ check_repo_sync_status() {
       echo "$remote_managed_changes" | while IFS= read -r line; do
         warn "Remote managed change: $line"
       done
+    fi
+    if ! git diff --quiet "$merge_base..$REMOTE_REF" -- packages.txt 2>/dev/null; then
+      warn "packages.txt remote baseline changed"
+      REMOTE_PACKAGES_AHEAD=true
     fi
     ISSUES=$((ISSUES+1))
   fi
@@ -179,7 +248,7 @@ check_snapshot_drift() {
   if diff -q "$HOME/$file" "$repo_file" &>/dev/null; then
     ok "$file matches tracked snapshot"
   else
-    warn "$file differs from tracked snapshot"
+    warn "$file is ahead of tracked snapshot"
     ISSUES=$((ISSUES+1))
   fi
 }
@@ -188,11 +257,23 @@ check_snapshot_drift ".zshrc"
 check_snapshot_drift ".bashrc"
 
 CURRENT_PACKAGES=$(generate_packages)
-TRACKED_PACKAGES=$(cat "$SCRIPT_DIR/packages.txt" 2>/dev/null || echo "")
-if [ "$CURRENT_PACKAGES" = "$TRACKED_PACKAGES" ]; then
-  ok "packages.txt matches current package snapshot"
+CURRENT_PACKAGES_FILE="$(mktemp)"
+cleanup_current_packages() {
+  rm -f "$CURRENT_PACKAGES_FILE"
+}
+trap cleanup_current_packages EXIT
+printf '%s\n' "$CURRENT_PACKAGES" > "$CURRENT_PACKAGES_FILE"
+TRACKED_PACKAGES_FILE="$SCRIPT_DIR/packages.txt"
+
+if local_package_additions_missing "$TRACKED_PACKAGES_FILE" "$CURRENT_PACKAGES_FILE"; then
+  warn "Local package state has additions missing from tracked packages.txt baseline"
+  ISSUES=$((ISSUES+1))
 else
-  warn "packages.txt differs from current package snapshot"
+  ok "packages.txt baseline covers local package state"
+fi
+
+if [ "$REMOTE_PACKAGES_AHEAD" = true ]; then
+  warn "Tracked packages baseline is behind origin/master"
   ISSUES=$((ISSUES+1))
 fi
 
