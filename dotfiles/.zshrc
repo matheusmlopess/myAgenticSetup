@@ -81,13 +81,10 @@ plugins=(
 )
 zstyle ':omz:alpha:lib:git' async-prompt no
 
-ZSH_COMPDUMP="$HOME/.config/zsh/zcompdump"
-mkdir -p "$HOME/.config/zsh"
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
-export COLORTERM=truecolor
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
@@ -115,7 +112,6 @@ export COLORTERM=truecolor
  alias zconfig="vi ~/.zshrc"
  alias ohmyzsh="vi ~/.oh-my-zsh"
  alias ll="ls -lsah"
- alias obsidian="cd /mnt/d/OneDrive/Obsidian"
 
  #git
 plugins=(git git-prompt)
@@ -124,8 +120,7 @@ export PATH="$HOME/.local/bin:$PATH"
 # Remind when sync is due; publishing remains a manual action.
 _wsl_sync_check() {
   local sync_script="$HOME/repo/wsl_setup/sync.sh"
-  local local_stamp_file="$HOME/repo/wsl_setup/.last_sync.local"
-  local tracked_stamp_file="$HOME/repo/wsl_setup/.last_sync"
+  local stamp_file="$HOME/repo/wsl_setup/.last_sync"
   local repo_dir="$HOME/repo/wsl_setup"
   local remote_ref="origin/master"
   local interval=$((15 * 86400)) # 15 days in seconds
@@ -134,11 +129,7 @@ _wsl_sync_check() {
 
   local now=$(date +%s)
   local last=0
-  if [[ -f "$local_stamp_file" ]]; then
-    last=$(cat "$local_stamp_file")
-  elif [[ -f "$tracked_stamp_file" ]]; then
-    last=$(cat "$tracked_stamp_file")
-  fi
+  [[ -f "$stamp_file" ]] && last=$(cat "$stamp_file")
 
   if (( now - last >= interval )); then
     echo "[wsl-sync] 15 days since last sync — run: bash ~/repo/wsl_setup/sync.sh"

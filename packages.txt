@@ -1,4 +1,4 @@
-# APT packages explicitly installed (auto-generated 2026-04-05)
+# APT packages explicitly installed (auto-generated 2026-04-24)
 # Do not edit manually — updated by sync.sh
 
 ## APT (manually installed)
@@ -6,7 +6,6 @@ apt-transport-https
 base-files
 bash
 bsdutils
-build-essential
 ca-certificates
 coreutils
 curl
@@ -15,7 +14,7 @@ debianutils
 diffutils
 findutils
 gh
-gnupg
+git
 google-chrome-stable
 grep
 gzip
@@ -23,17 +22,27 @@ hostname
 htop
 init
 jq
+libasound2t64
+libatk-bridge2.0-0t64
+libatk1.0-0t64
 libattr1
+libcups2t64
+libnss3
+libpango-1.0-0
+libxcomposite1
+libxdamage1
+libxrandr2
+libxss1
 login
 lynx
 ncurses-base
 ncurses-bin
-nodejs
-openssh-server
+network-manager
+npm
 pipx
 python3-pip
 python3-venv
-ripgrep
+tree
 ubuntu-minimal
 ubuntu-wsl
 unzip
@@ -43,8 +52,6 @@ zsh
 ## npm global packages
 mermaid-cli
 codex
-corepack
-npm
 
 ## pip3 global packages
 Babel==2.10.3
@@ -52,13 +59,14 @@ bcrypt==3.2.2
 blinker==1.7.0
 certifi==2023.11.17
 chardet==5.2.0
-cloud-init==25.1.4
+cloud-init==25.2
 colorama==0.4.6
 command-not-found==0.3
 configobj==5.0.8
 dbus-python==1.3.2
 distro==1.9.0
 distro-info==1.7+build1
+gyp==0.1
 idna==3.6
 Jinja2==3.1.2
 jsonpatch==1.32
@@ -84,7 +92,6 @@ requests==2.31.0
 rich==13.7.1
 service-identity==24.1.0
 setuptools==68.1.2
-ssh-import-id==5.11
 systemd-python==235
 Twisted==24.3.0
 typing_extensions==4.10.0
